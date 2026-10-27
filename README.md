@@ -8,7 +8,6 @@
 <div align="center">
 
 [![BetterDiscord](https://img.shields.io/badge/BetterDiscord-Plugin-007BFF?style=for-the-badge&logo=discord&logoColor=white)](https://betterdiscord.app)
-[![Latest Release](https://img.shields.io/github/v/release/8ug8ird/Soundboard?style=for-the-badge&label=Latest%20Release&color=007bff)](https://github.com/8ug8ird/Soundboard/releases/latest)
 [![License](https://img.shields.io/badge/License-MIT-007bff?style=for-the-badge)](https://github.com/8ug8ird/Soundboard/blob/main/LICENSE)
 
 A customizable BetterDiscord soundboard for playing your own audio clips in voice calls.
@@ -42,7 +41,7 @@ A customizable BetterDiscord soundboard for playing your own audio clips in voic
 
 Requires [BetterDiscord](https://betterdiscord.app).
 
-1. Download [`Soundboard.plugin.js`](https://github.com/8ug8ird/Soundboard/raw/refs/heads/main/Soundboard.plugin.js).
+1. Download `Soundboard.plugin.js` from the [latest release](https://github.com/8ug8ird/Soundboard/releases/latest).
 2. In Discord, go to **Settings → Plugins → Open Plugins Folder**.
 3. Move `Soundboard.plugin.js` into that folder.
 4. Enable **Soundboard** in the Plugins settings.
