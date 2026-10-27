@@ -13,7 +13,7 @@
 
 A customizable BetterDiscord soundboard for playing your own audio clips in voice calls.
 
-[Download](https://github.com/8ug8ird/Soundboard/raw/refs/heads/main/Soundboard.plugin.js) · [Report a bug](https://github.com/8ug8ird/Soundboard/issues) · [Contribute](https://github.com/8ug8ird/Soundboard/pulls)
+[Download](https://github.com/8ug8ird/Soundboard/releases/latest) · [Report a bug](https://github.com/8ug8ird/Soundboard/issues) · [Contribute](https://github.com/8ug8ird/Soundboard/pulls)
 
 </div>
 
