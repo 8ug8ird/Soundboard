@@ -86,7 +86,7 @@ Once connected to a voice call with your microphone unmuted, select a sound to p
   <sub>Manage sounds, assign hotkeys, and adjust playback settings.</sub>
 </p>
 
-<br>
+
 
 > [!NOTE]
 > - Playing sounds in a call requires an unmuted microphone. Private previews work independently.
