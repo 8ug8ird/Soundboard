@@ -25,7 +25,7 @@ A customizable soundboard plugin for BetterDiscord.
 <br>
 
 <p align="center">
-  <img src="assets/demo.gif" width="850" alt="Soundboard demonstration">
+  <img src="assets/img2.png" width="500" alt="Soundboard demonstration">
 </p>
 
 ## Installation
