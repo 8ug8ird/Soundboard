@@ -49,6 +49,31 @@ Requires [BetterDiscord](https://betterdiscord.app).
 3. Move `Soundboard.plugin.js` into that folder.
 4. Enable **Soundboard** in the Plugins settings.
 
+
+## Usage
+
+1. Open **Settings → Plugins → Soundboard** or click **Manage sounds** in Discord's Soundboard panel.
+2. Import audio files using **Add sounds** or drag and drop.
+3. Configure sound names, emojis, volumes, and hotkeys as needed.
+4. Join a voice call with your microphone unmuted and select a sound to play it.
+
+Use **Preview** to listen privately or **Stop all** to stop playback.
+
+## Controls & Behavior
+
+- **Hotkeys:** Play sounds using keyboard or mouse shortcuts, even when Discord is unfocused.
+- **Volume:** Adjust individual sound volumes and the master output level.
+- **Hear my sounds:** Control local monitoring without affecting what others hear.
+- **Sound Library:** Search, favorite, and organize imported sounds. Sounds and settings are stored locally.
+
+
+> [!NOTE]
+> - Playing sounds in a call requires an unmuted microphone. Private previews work independently.
+> - Enabling Soundboard during a call briefly reconnects voice. Disabling it disconnects the call.
+> - Imported sounds are stored locally and are not added to Discord's native soundboard.
+> - Discord updates may affect compatibility.
+
+
 ## Feedback & Contributing
 
 For bugs, unexpected behavior, or edge cases, open an [Issue](https://github.com/8ug8ird/Soundboard/issues).
