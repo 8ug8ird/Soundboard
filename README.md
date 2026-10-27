@@ -55,19 +55,6 @@ Once connected to a voice call with your microphone unmuted, select a sound to p
 
 <br>
 
-## In Discord
-
-<p align="center">
-  <a href="assets/img3.png">
-    <img src="assets/img3.png"
-         alt="Soundboard integrated into Discord"
-         width="80%">
-  </a>
-  <br>
-  <sub>Custom sounds integrated into Discord's soundboard panel.</sub>
-</p>
-
-<br>
 
 ## Controls & Behavior
 
