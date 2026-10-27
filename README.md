@@ -17,24 +17,28 @@ A customizable soundboard plugin for BetterDiscord.
 </div>
 
 
+
 ## Features
 
-<p>
-  <img src="assets/img2.png" width="55%" align="left" alt="Soundboard interface">
+<img src="assets/img2.png" width="55%" align="left" alt="Soundboard interface">
 
+<p>
   <strong>Custom Sounds</strong><br>
   Import your own audio files to create a personalized soundboard.
+</p>
 
-  <br>
+<p>
   <strong>Hotkeys</strong><br>
   Play sounds using customizable keyboard shortcuts.
+</p>
 
-  <br>
+<p>
   <strong>Volume Controls</strong><br>
   Adjust individual sound volumes and master volume.
-
-  <br clear="left">
 </p>
+
+<br clear="left">
+
 
 
 ## Installation
