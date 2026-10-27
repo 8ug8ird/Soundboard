@@ -1,7 +1,7 @@
 
 <p align="center">
   <a href="https://github.com/8ug8ird/Soundboard">
-    <img src="assets/img.png" alt="Soundboard" width="800">
+    <img src="assets/S.png" alt="Soundboard" width="800">
   </a>
 </p>
 
