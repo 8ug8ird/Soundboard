@@ -1,0 +1,102 @@
+name: Bug Report
+description: Report an issue with Soundboard's audio, shortcuts, settings, or interface
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Soundboard.
+
+        Before reporting a problem, check for existing issues and confirm which versions of Soundboard and BetterDiscord you are using. Include only information you are comfortable sharing; remove private details from logs and recordings.
+
+        **Audio troubleshooting:** A sound working in local preview does not necessarily mean it is reaching a Discord voice call. Please distinguish between the two when describing the problem.
+
+  - type: input
+    id: soundboard-version
+    attributes:
+      label: Soundboard version
+      description: Find the version in BetterDiscord > Plugins, or use `BdApi.Plugins.get("Soundboard")?.version` in DevTools.
+      placeholder: "e.g. 1.0.0"
+    validations:
+      required: true
+
+  - type: input
+    id: betterdiscord-version
+    attributes:
+      label: BetterDiscord version
+      placeholder: "e.g. 1.11.2"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: affected-area
+    attributes:
+      label: What's affected?
+      description: Choose the area that best matches the issue.
+      options:
+        - Importing or managing sounds
+        - Local audio preview
+        - Playback in voice calls
+        - Keyboard or mouse hotkeys
+        - Volume or sound monitoring
+        - Saved settings or plugin startup
+        - Interface or other behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: What happened?
+      description: Describe the unexpected behavior and when it occurs.
+      placeholder: "e.g. The sound plays in preview, but nobody in the voice call can hear it."
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: What should have happened?
+      description: Describe the result you expected instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Give a clear sequence someone else can follow.
+      placeholder: |
+        1. Start Discord with BetterDiscord and Soundboard enabled.
+        2. Join a voice channel and unmute.
+        3. Add a sound and try to play it in the call.
+        4. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: audio-and-settings
+    attributes:
+      label: Audio and settings details (if relevant)
+      description: Mention whether the issue affects preview, call playback, or both; the audio file type; the Hear my sounds setting; master/individual volume; mute status; and whether reconnecting changes anything.
+      placeholder: "e.g. MP3 file; preview works; voice playback fails; microphone unmuted; master volume 70%."
+    validations:
+      required: false
+
+  - type: textarea
+    id: console-errors
+    attributes:
+      label: Relevant DevTools errors
+      description: Open DevTools (Ctrl+Shift+I) and include any Soundboard-related errors. Remove tokens, personal data, and unrelated logs.
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Anything else?
+      description: Include Discord version or channel, conflicting plugins, screenshots, or a short recording if they help reproduce the issue.
+    validations:
+      required: false
