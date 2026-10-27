@@ -57,6 +57,7 @@ Requires [BetterDiscord](https://betterdiscord.app).
 - **Hear my sounds:** Control local monitoring without affecting what others hear.
 - **Sound Library:** Search, favorite, and organize imported sounds. Sounds and settings are stored locally.
 
+<br>
 
 > [!NOTE]
 > - Playing sounds in a call requires an unmuted microphone. Private previews work independently.
@@ -64,6 +65,7 @@ Requires [BetterDiscord](https://betterdiscord.app).
 > - Imported sounds are stored locally and are not added to Discord's native soundboard.
 > - Discord updates may affect compatibility.
 
+<br>
 
 ## Feedback & Contributing
 
