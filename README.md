@@ -50,15 +50,6 @@ Requires [BetterDiscord](https://betterdiscord.app).
 4. Enable **Soundboard** in the Plugins settings.
 
 
-## Usage
-
-1. Open **Settings → Plugins → Soundboard** or click **Manage sounds** in Discord's Soundboard panel.
-2. Import audio files using **Add sounds** or drag and drop.
-3. Configure sound names, emojis, volumes, and hotkeys as needed.
-4. Join a voice call with your microphone unmuted and select a sound to play it.
-
-Use **Preview** to listen privately or **Stop all** to stop playback.
-
 ## Controls & Behavior
 
 - **Hotkeys:** Play sounds using keyboard or mouse shortcuts, even when Discord is unfocused.
