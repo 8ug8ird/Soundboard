@@ -50,12 +50,35 @@ Requires [BetterDiscord](https://betterdiscord.app).
 4. Enable **Soundboard** in the Plugins settings.
 
 
+## In Discord
+
+<p align="center">
+  <a href="assets/img3.png">
+    <img src="assets/img3.png"
+         alt="Soundboard integrated into Discord"
+         width="80%">
+  </a>
+  <br>
+  <sub>Custom sounds integrated into Discord's soundboard panel.</sub>
+</p>
+
+
 ## Controls & Behavior
 
 - **Hotkeys:** Play sounds using keyboard or mouse shortcuts, even when Discord is unfocused.
 - **Volume:** Adjust individual sound volumes and the master output level.
 - **Hear my sounds:** Control local monitoring without affecting what others hear.
 - **Sound Library:** Search, favorite, and organize imported sounds. Sounds and settings are stored locally.
+
+
+<p align="center">
+  <a href="assets/img4.png">
+    <img src="assets/img4.png" alt="Soundboard settings" width="80%">
+  </a>
+  <br>
+  <sub>Manage sounds, assign hotkeys, and adjust playback settings.</sub>
+</p>
+
 
 <br>
 
