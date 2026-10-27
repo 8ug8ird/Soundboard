@@ -1,0 +1,67 @@
+name: Feature Request
+description: Suggest a practical improvement or new capability for Soundboard
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Soundboard is designed to keep sound playback simple and reliable. Feature ideas are welcome, especially when they improve how people organize sounds, trigger them, or use them in voice calls.
+
+        Please search existing requests first. For larger changes, describe the proposed behavior before starting a pull request.
+
+  - type: dropdown
+    id: feature-area
+    attributes:
+      label: Which area would this improve?
+      options:
+        - Sound library and file management
+        - Playback and voice-call behavior
+        - Hotkeys and mouse shortcuts
+        - Volume and monitoring controls
+        - Interface and accessibility
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: feature-description
+    attributes:
+      label: Describe your idea
+      description: What should Soundboard do differently? Focus on the user-facing behavior.
+      placeholder: "e.g. Let users organize imported sounds into groups so larger collections are easier to navigate."
+    validations:
+      required: true
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: What problem would this solve?
+      description: Explain when you would use this feature and why the current behavior is insufficient.
+      placeholder: "Describe a real situation where this would make Soundboard easier to use."
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-experience
+    attributes:
+      label: How should it work?
+      description: Outline the expected interaction, including any impact on existing sounds, shortcuts, or settings.
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives or workarounds
+      description: Have you tried another approach? Is there a simpler way to achieve the same result?
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Examples or references
+      description: Add sketches, screenshots, links, or other context that helps explain the suggestion.
+    validations:
+      required: false
