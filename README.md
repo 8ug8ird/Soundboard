@@ -1,4 +1,5 @@
- <p align="center">
+
+<p align="center">
   <a href="https://github.com/8ug8ird/Soundboard">
     <img src="assets/img.png" alt="Soundboard" width="800">
   </a>
@@ -10,12 +11,11 @@
 [![Latest Release](https://img.shields.io/github/v/release/8ug8ird/Soundboard?style=for-the-badge&label=Latest%20Release&color=007bff)](https://github.com/8ug8ird/Soundboard/releases/latest)
 [![License](https://img.shields.io/badge/License-MIT-007bff?style=for-the-badge)](https://github.com/8ug8ird/Soundboard/blob/main/LICENSE)
 
-A customizable soundboard plugin for BetterDiscord.
+A customizable BetterDiscord soundboard for playing your own audio clips in voice calls.
 
-[Download](https://github.com/8ug8ird/Soundboard/releases/latest) · [Report a bug](https://github.com/8ug8ird/Soundboard/issues) · [Discussions](https://github.com/8ug8ird/Soundboard/discussions)
+[Download](https://github.com/8ug8ird/Soundboard/raw/refs/heads/main/Soundboard.plugin.js) · [Report a bug](https://github.com/8ug8ird/Soundboard/issues) · [Contribute](https://github.com/8ug8ird/Soundboard/pulls)
 
 </div>
-
 
 ## Features
 
@@ -38,17 +38,22 @@ A customizable soundboard plugin for BetterDiscord.
 
 <br clear="left">
 
-<br>
-
 ## Installation
 
 Requires [BetterDiscord](https://betterdiscord.app).
 
-1. Download `Soundboard.plugin.js` from the [latest release](https://github.com/8ug8ird/Soundboard/releases/latest).
+1. Download [`Soundboard.plugin.js`](https://github.com/8ug8ird/Soundboard/raw/refs/heads/main/Soundboard.plugin.js).
 2. In Discord, go to **Settings → Plugins → Open Plugins Folder**.
 3. Move `Soundboard.plugin.js` into that folder.
 4. Enable **Soundboard** in the Plugins settings.
 
+## Usage
+
+Open **Manage sounds** from Discord's Soundboard panel to import and configure audio files.
+
+Once connected to a voice call with your microphone unmuted, select a sound to play it. Use **Preview** to listen privately without sending audio to the call.
+
+<br>
 
 ## In Discord
 
@@ -62,6 +67,7 @@ Requires [BetterDiscord](https://betterdiscord.app).
   <sub>Custom sounds integrated into Discord's soundboard panel.</sub>
 </p>
 
+<br>
 
 ## Controls & Behavior
 
@@ -70,15 +76,15 @@ Requires [BetterDiscord](https://betterdiscord.app).
 - **Hear my sounds:** Control local monitoring without affecting what others hear.
 - **Sound Library:** Search, favorite, and organize imported sounds. Sounds and settings are stored locally.
 
-
 <p align="center">
   <a href="assets/img4.png">
-    <img src="assets/img4.png" alt="Soundboard settings" width="80%">
+    <img src="assets/img4.png"
+         alt="Soundboard settings and sound management"
+         width="80%">
   </a>
   <br>
   <sub>Manage sounds, assign hotkeys, and adjust playback settings.</sub>
 </p>
-
 
 <br>
 
@@ -92,9 +98,9 @@ Requires [BetterDiscord](https://betterdiscord.app).
 
 ## Feedback & Contributing
 
-For bugs, unexpected behavior, or edge cases, open an [Issue](https://github.com/8ug8ird/Soundboard/issues).
+Report bugs or suggest improvements through [Issues](https://github.com/8ug8ird/Soundboard/issues).
 
-Feature requests and implementation-related changes can be submitted through [Pull Requests](https://github.com/8ug8ird/Soundboard/pulls).
+Code contributions can be submitted through [Pull Requests](https://github.com/8ug8ird/Soundboard/pulls).
 
 <br>
 
