@@ -17,7 +17,6 @@ A customizable soundboard plugin for BetterDiscord.
 </div>
 
 
-
 ## Features
 
 <img src="assets/img2.png" width="55%" align="left" alt="Soundboard interface">
@@ -39,7 +38,7 @@ A customizable soundboard plugin for BetterDiscord.
 
 <br clear="left">
 
-
+<br>
 
 ## Installation
 
