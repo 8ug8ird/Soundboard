@@ -53,8 +53,6 @@ Open **Manage sounds** from Discord's Soundboard panel to import and configure a
 
 Once connected to a voice call with your microphone unmuted, select a sound to play it. Use **Preview** to listen privately without sending audio to the call.
 
-<br>
-
 
 ## Controls & Behavior
 
@@ -62,16 +60,6 @@ Once connected to a voice call with your microphone unmuted, select a sound to p
 - **Volume:** Adjust individual sound volumes and the master output level.
 - **Hear my sounds:** Control local monitoring without affecting what others hear.
 - **Sound Library:** Search, favorite, and organize imported sounds. Sounds and settings are stored locally.
-
-<p align="center">
-  <a href="assets/img4.png">
-    <img src="assets/img4.png"
-         alt="Soundboard settings and sound management"
-         width="80%">
-  </a>
-  <br>
-  <sub>Manage sounds, assign hotkeys, and adjust playback settings.</sub>
-</p>
 
 <br>
 
