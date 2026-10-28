@@ -2,13 +2,13 @@
  * @name Soundboard
  * @author 8ug8ird
  * @authorId 698947564459917343
- * @version 1.1.0
+ * @version 1.1.1
  * @description Play your own sounds in voice calls
  * @source https://github.com/8ug8ird/Soundboard
  */
 
 const NAME = "Soundboard";
-const VERSION = "1.1.0";
+const VERSION = "1.1.1";
 const UPDATE_REPO = "8ug8ird/Soundboard";
 const RELEASES_URL = `https://github.com/${UPDATE_REPO}/releases`;
 
@@ -105,17 +105,20 @@ module.exports = class Soundboard {
                 return nativeEmit(...args);
             });
             for (const method of Object.getOwnPropertyNames(Object.getPrototypeOf(web))) {
-                if (["constructor", "destroy", "getCodecSurvey", "getMLSSigningKey", "rankRtcRegions"].includes(method)) continue;
+                if (["constructor", "destroy", "getCodecSurvey", "getMLSSigningKey", "rankRtcRegions",
+                    "supports", "eachConnection", "getCodecCapabilities", "getVideoInputDevices", "setVideoInputDevice",
+                    "getVideoInputDeviceId", "setAsyncVideoInputDeviceInit", "getDesktopSource", "getScreenPreviews",
+                    "getWindowPreviews", "getSingleWindowPreview", "setGoLiveSource", "setOnVideoContainerResized",
+                    "setNativeDesktopVideoSourcePickerActive", "presentNativeScreenSharePicker", "releaseNativeDesktopVideoSourcePickerStream"
+                ].includes(method)) continue;
                 if (typeof web[method] === "function" && typeof this.native[method] === "function") {
-                    BdApi.Patcher.instead(NAME, this.native, method, (_, args) => {
+                    BdApi.Patcher.instead(NAME, this.native, method, (_, args, original) => {
+                        if (method === "connect" && args[0] === "stream") return original.apply(this.native, args);
                         if (method === "fetchAsyncResources") args[0] = { ...args[0], fetchDave: true };
                         return web[method](...args);
                     });
                 }
             }
-            const store = BdApi.Webpack.getStore("MediaEngineStore");
-            BdApi.Patcher.instead(NAME, store, "getVideoComponent", () => web.Video);
-            BdApi.Patcher.instead(NAME, store, "getCameraComponent", () => web.Camera);
             web.emit(factory.bg.DeviceChange, ...devices);
             if (reconnect && !this.stopped) await channels.selectVoiceChannel(channelId);
             BdApi.UI.showToast("Soundboard is ready.", { type: "success" });
