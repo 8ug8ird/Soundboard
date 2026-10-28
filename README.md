@@ -9,6 +9,7 @@
 
 [![BetterDiscord](https://img.shields.io/badge/BetterDiscord-Plugin-007BFF?style=for-the-badge&logo=discord&logoColor=white)](https://betterdiscord.app)
 [![Latest Release](https://img.shields.io/github/v/release/8ug8ird/Soundboard?style=for-the-badge&label=Latest%20Release&color=007bff)](https://github.com/8ug8ird/Soundboard/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/8ug8ird/Soundboard/total?style=for-the-badge&label=Downloads&color=007bff)](https://github.com/8ug8ird/Soundboard/releases)
 [![License](https://img.shields.io/badge/License-MIT-007bff?style=for-the-badge)](https://github.com/8ug8ird/Soundboard/blob/main/LICENSE)
 
 A customizable BetterDiscord soundboard for playing your own audio clips in voice calls.
