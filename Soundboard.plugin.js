@@ -2,13 +2,13 @@
  * @name Soundboard
  * @author 8ug8ird
  * @authorId 698947564459917343
- * @version 1.0.1
+ * @version 1.1.0
  * @description Play your own sounds in voice calls
  * @source https://github.com/8ug8ird/Soundboard
  */
 
 const NAME = "Soundboard";
-const VERSION = "1.0.1";
+const VERSION = "1.1.0";
 const UPDATE_REPO = "8ug8ird/Soundboard";
 const RELEASES_URL = `https://github.com/${UPDATE_REPO}/releases`;
 
@@ -162,14 +162,7 @@ module.exports = class Soundboard {
         this.graphs.set(audio, null);
     }
 
-    async play(sound, preview = false) {
-        if (!preview && !this.web) throw Error("Audio is still starting. Please try again in a moment.");
-        if (!preview) {
-            if (![...this.graphs.values()].some(Boolean)) throw Error("Join a voice call to play sounds.");
-            const store = BdApi.Webpack.getStore("MediaEngineStore");
-            if (store.isMute()) throw Error("Unmute your microphone to play sounds.");
-        }
-        const context = preview ? this.previewContext ||= new AudioContext() : this.context;
+    loadBuffer(sound, context) {
         if (!this.buffers.has(sound.id)) {
             const loading = Promise.resolve().then(() => {
                 const bytes = require("fs").readFileSync(this.audioPath(sound.id), null);
@@ -178,7 +171,18 @@ module.exports = class Soundboard {
             this.buffers.set(sound.id, loading);
             loading.catch(() => this.buffers.delete(sound.id));
         }
-        const buffer = await this.buffers.get(sound.id);
+        return this.buffers.get(sound.id);
+    }
+
+    async play(sound, preview = false) {
+        if (!preview && !this.web) throw Error("Audio is still starting. Please try again in a moment.");
+        if (!preview) {
+            if (![...this.graphs.values()].some(Boolean)) throw Error("Join a voice call to play sounds.");
+            const store = BdApi.Webpack.getStore("MediaEngineStore");
+            if (store.isMute()) throw Error("Unmute your microphone to play sounds.");
+        }
+        const context = preview ? this.previewContext ||= new AudioContext() : this.context;
+        const buffer = await this.loadBuffer(sound, context);
         if (this.stopped || context.state === "closed") return;
         if (!preview && (!this.web || BdApi.Webpack.getStore("MediaEngineStore").isMute() || ![...this.graphs.values()].some(Boolean))) return;
         await context.resume();
@@ -191,7 +195,8 @@ module.exports = class Soundboard {
         source.connect(gain).connect(preview ? context.destination : this.effects);
         source.onended = () => { source.disconnect(); gain.disconnect(); this.sources.delete(source); this.updatePlaybackState(); };
         this.sources.add(source);
-        source.start();
+        const start = sound.start ?? 0;
+        source.start(0, start, (sound.end ?? buffer.duration) - start);
         this.updatePlaybackState();
     }
 
@@ -431,6 +436,7 @@ module.exports = class Soundboard {
         for (const id of this.recordMouseIds || []) this.keyboard.inputEventUnregister(id);
         this.recordMouseIds = [];
         this.recordingKey = null;
+        this.pressedKeys?.clear();
         if (this.onRecordMouse) window.removeEventListener("mousedown", this.onRecordMouse, true);
     }
 
@@ -534,10 +540,15 @@ module.exports = class Soundboard {
             .soundboard-volume { display:grid;gap:9px; }
             .soundboard-volume input { width:100%;margin:0;accent-color:var(--brand-500,#5865f2);cursor:pointer; }
             .soundboard-library { display:grid;gap:10px; }
-            .soundboard-list { display:grid;gap:8px;max-height:240px;overflow-y:auto;padding:2px; }
+            .soundboard-list { display:grid;gap:8px;padding:2px; }
             .soundboard-row { display:grid;gap:10px;padding:10px;border:1px solid var(--background-modifier-accent,#ffffff14);border-radius:8px;background:var(--background-secondary,#232428); }
             .soundboard-row-main { display:grid;grid-template-columns:38px minmax(0,1fr) 116px 28px;gap:6px;align-items:center; }
             .soundboard-row-controls { display:flex;gap:8px;align-items:center; }
+            .soundboard-clip[hidden] { display:none; }
+            .soundboard-waveform { display:block;width:100%;height:90px;background:#191a1d;border-radius:6px;cursor:ew-resize;touch-action:none; }
+            .soundboard-clip-fields { display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:10px; }
+            .soundboard-clip-fields label { display:grid;gap:4px;font-size:12px; }
+            .soundboard-clip-fields input { width:110px; }
             .soundboard-row-controls label { display:flex;gap:6px;align-items:center;flex:1;font-size:12px;color:var(--text-muted,#a4a9b2); }
             .soundboard-row-controls input { width:100%;min-width:40px;accent-color:var(--brand-500,#5865f2); }
             .soundboard-row-controls .soundboard-button { min-height:28px;padding:4px 8px;font-size:12px; }
@@ -676,6 +687,90 @@ module.exports = class Soundboard {
         if (top && nativeGrid) top.after(section);
         else picker.append(section);
         render();
+    }
+
+    async createClipEditor(sound) {
+        const context = this.previewContext ||= new AudioContext();
+        const buffer = await this.loadBuffer(sound, context);
+        const editor = this.uiNode("div", "soundboard-clip");
+        const canvas = this.uiNode("canvas", "soundboard-waveform");
+        canvas.width = 800;
+        canvas.height = 100;
+        canvas.setAttribute("aria-label", "Waveform: drag near either edge of the selection to trim");
+        const peaks = new Float32Array(400);
+        const stride = Math.max(1, Math.floor(buffer.length / 100000));
+        for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+            const samples = buffer.getChannelData(channel);
+            for (let i = 0; i < samples.length; i += stride) {
+                const bin = Math.min(399, Math.floor(i / samples.length * 400));
+                peaks[bin] = Math.max(peaks[bin], Math.abs(samples[i]));
+            }
+        }
+        const fields = this.uiNode("div", "soundboard-clip-fields");
+        const inputs = {};
+        const duration = this.uiNode("span", "soundboard-count");
+        const draw = () => {
+            const start = sound.start ?? 0;
+            const end = sound.end ?? buffer.duration;
+            inputs.start.value = start.toFixed(3);
+            inputs.end.value = end.toFixed(3);
+            duration.textContent = `${(end - start).toFixed(2)}s / ${buffer.duration.toFixed(2)}s`;
+            const ctx = canvas.getContext("2d");
+            ctx.clearRect(0, 0, 800, 100);
+            ctx.fillStyle = "#5865f244";
+            ctx.fillRect(start / buffer.duration * 800, 0, (end - start) / buffer.duration * 800, 100);
+            for (let i = 0; i < peaks.length; i++) {
+                const time = i / peaks.length * buffer.duration;
+                ctx.fillStyle = time >= start && time <= end ? "#f2f3f5" : "#60646c";
+                const height = Math.max(1, peaks[i] * 88);
+                ctx.fillRect(i * 2, (100 - height) / 2, 1, height);
+            }
+            ctx.fillStyle = "#fff";
+            for (const time of [start, end]) ctx.fillRect(Math.min(797, time / buffer.duration * 800), 0, 3, 100);
+        };
+        const change = (edge, value) => {
+            if (!Number.isFinite(value)) return draw();
+            const gap = 1 / buffer.sampleRate;
+            if (edge === "start") sound.start = Math.max(0, Math.min(value, (sound.end ?? buffer.duration) - gap));
+            else sound.end = Math.min(buffer.duration, Math.max(value, (sound.start ?? 0) + gap));
+            for (const source of this.sources) if (source.soundId === sound.id) source.stop();
+            draw();
+        };
+        for (const edge of ["start", "end"]) {
+            const label = this.uiNode("label", "", `${edge === "start" ? "Start" : "End"} (s)`);
+            const input = this.uiNode("input", "soundboard-text");
+            input.type = "number";
+            input.min = 0;
+            input.max = buffer.duration;
+            input.step = "0.001";
+            input.setAttribute("aria-label", `${edge} in seconds for ${sound.name}`);
+            input.onchange = () => { change(edge, input.valueAsNumber); this.save(); };
+            inputs[edge] = input;
+            label.append(input);
+            fields.append(label);
+        }
+        let dragging;
+        const timeAt = event => Math.max(0, Math.min(buffer.duration, (event.clientX - canvas.getBoundingClientRect().left) / canvas.getBoundingClientRect().width * buffer.duration));
+        canvas.onpointerdown = event => {
+            if (event.button !== 0) return;
+            const time = timeAt(event);
+            dragging = Math.abs(time - (sound.start ?? 0)) <= Math.abs(time - (sound.end ?? buffer.duration)) ? "start" : "end";
+            canvas.setPointerCapture(event.pointerId);
+            change(dragging, time);
+        };
+        canvas.onpointermove = event => { if (dragging) change(dragging, timeAt(event)); };
+        canvas.onlostpointercapture = () => { dragging = null; this.save(); };
+        canvas.onpointerup = event => canvas.releasePointerCapture(event.pointerId);
+        const full = this.uiButton("Use full audio", () => {
+            delete sound.start;
+            delete sound.end;
+            draw();
+            this.save();
+        });
+        fields.append(full, duration);
+        editor.append(canvas, fields);
+        draw();
+        return editor;
     }
 
     getSettingsPanel() {
@@ -817,6 +912,16 @@ module.exports = class Soundboard {
             const play = this.uiButton("▶ Play", () => this.play(sound), "broadcast");
             const preview = this.uiButton("Preview", () => this.play(sound, true));
             preview.title = "Only you can hear this";
+            let editor;
+            const trim = this.uiButton("Edit clip", async () => {
+                trim.disabled = true;
+                try {
+                    if (!editor) { editor = await this.createClipEditor(sound); row.append(editor); }
+                    else editor.hidden = !editor.hidden;
+                    trim.setAttribute("aria-expanded", String(!editor.hidden));
+                } finally { trim.disabled = false; }
+            });
+            trim.setAttribute("aria-expanded", "false");
             const gainLabel = this.uiNode("label", "", "Volume");
             const gain = document.createElement("input");
             gain.type = "range";
@@ -829,7 +934,7 @@ module.exports = class Soundboard {
             gain.oninput = () => { sound.volume = Number(gain.value); gainValue.textContent = `${Math.round(sound.volume * 100)}%`; };
             gain.onchange = () => this.save();
             gainLabel.append(gain, gainValue);
-            controls.append(play, preview, this.favoriteButton(sound), gainLabel);
+            controls.append(play, preview, trim, this.favoriteButton(sound), gainLabel);
             row.append(main, controls);
             list.append(row);
         };
