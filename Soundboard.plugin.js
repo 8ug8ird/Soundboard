@@ -2,13 +2,13 @@
  * @name Soundboard
  * @author 8ug8ird
  * @authorId 698947564459917343
- * @version 1.0.0
+ * @version 1.0.1
  * @description Play your own sounds in voice calls
  * @source https://github.com/8ug8ird/Soundboard
  */
 
 const NAME = "Soundboard";
-const VERSION = "1.0.0";
+const VERSION = "1.0.1";
 const UPDATE_REPO = "8ug8ird/Soundboard";
 const RELEASES_URL = `https://github.com/${UPDATE_REPO}/releases`;
 
@@ -23,10 +23,11 @@ module.exports = class Soundboard {
         this.sources = new Set();
         this.buffers = new Map();
         this.keyboard = BdApi.Webpack.getByKeys("inputEventRegister", "inputEventUnregister");
-        this.keyUtils = BdApi.Webpack.getByKeys("OH", "dI", "Z0");
-        this.keyLayout = BdApi.Webpack.getByKeys("Ze", "Q_", "sv");
         this.keybindIds = [];
         this.globalKeys = new Set();
+        this.pressedKeys = new Set();
+        this.onBlur = () => this.pressedKeys.clear();
+        window.addEventListener("blur", this.onBlur);
         this.keybindId = 0x40000000 + Math.floor(Math.random() * 1000000);
         this.onKey = event => {
             if (event.type === "mousedown" && event.button < 2) return;
@@ -231,6 +232,7 @@ module.exports = class Soundboard {
         this.stateStores?.forEach(store => store?.removeChangeListener?.(this.onStateChange));
         document.querySelector("#soundboard-menu")?.remove();
         document.removeEventListener("keydown", this.onKey);
+        window.removeEventListener("blur", this.onBlur);
         document.removeEventListener("mousedown", this.onKey);
         document.removeEventListener("mouseup", this.blockMouseNavigation, true);
         document.removeEventListener("auxclick", this.blockMouseNavigation, true);
@@ -392,25 +394,37 @@ module.exports = class Soundboard {
     }
 
     nativeShortcut(key) {
-        const aliases = {
-            Escape: "esc", Delete: "del", PageUp: "page up", PageDown: "page down",
-            CapsLock: "caps lock", NumLock: "num lock", ScrollLock: "scroll lock",
-            PrintScreen: "print screen", Pause: "break", ContextMenu: "menu",
-            NumpadAdd: "numpad plus", NumpadSubtract: "numpad -", NumpadMultiply: "numpad *",
-            NumpadDivide: "numpad /", NumpadDecimal: "numpad ."
+        const codes = {
+            Ctrl: 162, Alt: 164, Shift: 160, Meta: 91,
+            ControlLeft: 162, ControlRight: 163, AltLeft: 164, AltRight: 165,
+            ShiftLeft: 160, ShiftRight: 161, MetaLeft: 91, MetaRight: 92,
+            Backspace: 8, Tab: 9, Enter: 13, NumpadEnter: 13, Pause: 19, CapsLock: 20,
+            Escape: 27, Space: 32, PageUp: 33, PageDown: 34, End: 35, Home: 36,
+            ArrowLeft: 37, ArrowUp: 38, ArrowRight: 39, ArrowDown: 40,
+            PrintScreen: 44, Insert: 45, Delete: 46, ContextMenu: 93,
+            NumpadMultiply: 106, NumpadAdd: 107, NumpadSubtract: 109,
+            NumpadDecimal: 110, NumpadDivide: 111, NumLock: 144, ScrollLock: 145,
+            Semicolon: 186, Equal: 187, Comma: 188, Minus: 189, Period: 190,
+            Slash: 191, Backquote: 192, BracketLeft: 219, Backslash: 220,
+            BracketRight: 221, Quote: 222, IntlBackslash: 226
         };
-        const parts = key.split("+");
-        const shortcut = parts.flatMap(code => /^Mouse[3-5]$/.test(code) ? [[1, Number(code.slice(5)) - 1]]
-            : this.keyUtils.OH(aliases[code] ?? this.keyLayout.Ze(true).get(code)
-                ?? code.replace(/^Arrow/, "").replace(/^Numpad/, "numpad ").toLowerCase()));
-        if (shortcut.length !== parts.length) throw Error(`Unsupported global hotkey: ${key}`);
-        return shortcut;
+        return key.split("+").map(code => {
+            if (/^Mouse[3-5]$/.test(code)) return [1, Number(code.slice(5)) - 1];
+            const value = /^Key[A-Z]$/.test(code) ? code.charCodeAt(3)
+                : /^Digit[0-9]$/.test(code) ? code.charCodeAt(5)
+                : /^Numpad[0-9]$/.test(code) ? 96 + Number(code.slice(6))
+                : /^F([1-9]|1[0-9]|2[0-4])$/.test(code) ? 111 + Number(code.slice(1))
+                : codes[code];
+            if (value === undefined) throw Error(`Unsupported global hotkey: ${key}`);
+            return [0, value, 1];
+        });
     }
 
     clearGlobalKeys() {
         for (const id of this.keybindIds || []) this.keyboard.inputEventUnregister(id);
         this.keybindIds = [];
         this.globalKeys?.clear();
+        this.pressedKeys?.clear();
     }
 
     clearMouseRecording() {
@@ -442,13 +456,13 @@ module.exports = class Soundboard {
             try {
                 const shortcut = this.nativeShortcut(sound.key);
                 const id = this.keybindId++;
-                let pressed = Boolean(this.recordingKey);
+                if (this.recordingKey) this.pressedKeys.add(id);
                 this.keyboard.inputEventRegister(id, shortcut, down => {
+                    if (!down) { this.pressedKeys.delete(id); return; }
                     if (this.stopped || this.recordingKey) return;
-                    if (!down) { pressed = false; return; }
-                    if (pressed) return;
-                    pressed = true;
+                    if (this.pressedKeys.has(id)) return;
                     if (document.hasFocus() && document.activeElement?.closest("input,textarea,[contenteditable=true]")) return;
+                    this.pressedKeys.add(id);
                     this.play(sound).catch(error => this.error(error));
                 }, { focused: true, blurred: true, keydown: true, keyup: true });
                 this.keybindIds.push(id);
