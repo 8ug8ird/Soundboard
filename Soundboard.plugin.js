@@ -2,13 +2,13 @@
  * @name Soundboard
  * @author 8ug8ird
  * @authorId 698947564459917343
- * @version 1.1.1
+ * @version 1.1.2
  * @description Play your own sounds in voice calls
  * @source https://github.com/8ug8ird/Soundboard
  */
 
 const NAME = "Soundboard";
-const VERSION = "1.1.1";
+const VERSION = "1.1.2";
 const UPDATE_REPO = "8ug8ird/Soundboard";
 const RELEASES_URL = `https://github.com/${UPDATE_REPO}/releases`;
 
@@ -100,9 +100,14 @@ module.exports = class Soundboard {
             this.resumeAfterUpdate = null;
             const nativeEmit = this.native.emit.bind(this.native);
             this.connectionEvent = factory.bg.Connection;
-            BdApi.Patcher.instead(NAME, web, "emit", (_, args) => {
+            BdApi.Patcher.instead(NAME, web, "emit", (_, args, original) => {
                 if (args[0] === this.connectionEvent) this.attach(args[1]);
+                if (args[0] === factory.bg.Destroy) return original.apply(web, args);
                 return nativeEmit(...args);
+            });
+            BdApi.Patcher.instead(NAME, this.native, "eachConnection", (_, args, original) => {
+                original.apply(this.native, args);
+                web.eachConnection(...args);
             });
             for (const method of Object.getOwnPropertyNames(Object.getPrototypeOf(web))) {
                 if (["constructor", "destroy", "getCodecSurvey", "getMLSSigningKey", "rankRtcRegions",
@@ -133,6 +138,13 @@ module.exports = class Soundboard {
         const audio = connection.input?.audio;
         if (!audio || this.graphs.has(audio)) return;
         this.graphs.set(audio, null);
+        BdApi.Patcher.after(NAME, connection, "getStats", (_, args, result) => result.then(async stats => {
+            if (stats != null) return stats;
+            const report = await connection.getRawStats();
+            const transport = [...report.values()].find(stat => stat.type === "candidate-pair" && stat.nominated && stat.state === "succeeded");
+            if (transport?.currentRoundTripTime != null) connection.emit("ping", transport.currentRoundTripTime * 1000);
+            return stats;
+        }));
         BdApi.Patcher.before(NAME, audio, "enable", () => this.disposeGraph(audio));
         BdApi.Patcher.before(NAME, audio, "destroy", () => {
             this.disposeGraph(audio);
