@@ -2,13 +2,14 @@
  * @name Soundboard
  * @author 8ug8ird
  * @authorId 698947564459917343
- * @version 1.1.2
+ * @version 1.2.0
  * @description Play your own sounds in voice calls
  * @source https://github.com/8ug8ird/Soundboard
  */
 
 const NAME = "Soundboard";
-const VERSION = "1.1.2";
+const VERSION = "1.2.0";
+const AUDIO_CACHE_BYTES = 64 * 1024 * 1024;
 const UPDATE_REPO = "8ug8ird/Soundboard";
 const RELEASES_URL = `https://github.com/${UPDATE_REPO}/releases`;
 
@@ -53,15 +54,32 @@ module.exports = class Soundboard {
         this.stateStores = ["MediaEngineStore", "SelectedChannelStore"].map(name => BdApi.Webpack.getStore(name));
         this.stateStores.forEach(store => store?.addChangeListener?.(this.onStateChange));
         this.menuObserver = new MutationObserver(() => {
-            if (!this.menuFrame && !document.querySelector("#soundboard-menu")) this.menuFrame = requestAnimationFrame(() => {
+            if (!this.menuFrame) this.menuFrame = requestAnimationFrame(() => {
                 this.menuFrame = null;
                 this.mountMenu();
+                this.mountQuickMenu();
             });
         });
         this.menuObserver.observe(document.body, { childList: true, subtree: true });
         this.mountMenu();
+        this.mountQuickMenu();
         this.startUpdateChecks();
         return this.activate().catch(error => this.error(error));
+    }
+
+    getMediaBindings() {
+        const isFactory = value => typeof value === "function" && /\breturn\s+new\s*\(/.test(String(value));
+        const isEvents = value => value?.Connection === "connection" && value?.DeviceChange === "devicechange" && value?.Destroy === "destroy";
+        const module = BdApi.Webpack.getModule(exports => {
+            const values = Object.values(exports || {});
+            return values.some(isEvents) && values.some(isFactory);
+        });
+        const values = Object.values(module || {});
+        const createEngine = values.find(isFactory);
+        const events = values.find(isEvents);
+        const capabilities = BdApi.Webpack.getModule(value => value?.SAMPLE_PLAYBACK != null, { searchExports: true });
+        if (!createEngine || !events || !capabilities) throw Error("Discord's media engine could not be located. Soundboard needs a compatibility update.");
+        return { createEngine, events, SAMPLE_PLAYBACK: capabilities.SAMPLE_PLAYBACK };
     }
 
     async activate() {
@@ -69,9 +87,10 @@ module.exports = class Soundboard {
         const channels = BdApi.Webpack.getByKeys("selectVoiceChannel");
         let channelId;
         let reconnect = false;
+        const { createEngine, events, SAMPLE_PLAYBACK } = this.getMediaBindings();
+        this.mediaEvents = events;
         this.native = BdApi.Webpack.getStore("MediaEngineStore").getMediaEngine();
-        const factory = BdApi.Webpack.getByKeys("WI", "hB");
-        const web = factory.hB("WEBRTC");
+        const web = createEngine("WEBRTC");
         this.web = web;
         try {
             if (!web.supported()) throw Error("The WebRTC voice engine is not available in this client.");
@@ -99,16 +118,18 @@ module.exports = class Soundboard {
             }
             this.resumeAfterUpdate = null;
             const nativeEmit = this.native.emit.bind(this.native);
-            this.connectionEvent = factory.bg.Connection;
+            this.connectionEvent = events.Connection;
             BdApi.Patcher.instead(NAME, web, "emit", (_, args, original) => {
                 if (args[0] === this.connectionEvent) this.attach(args[1]);
-                if (args[0] === factory.bg.Destroy) return original.apply(web, args);
+                if (args[0] === events.Destroy) return original.apply(web, args);
                 return nativeEmit(...args);
             });
             BdApi.Patcher.instead(NAME, this.native, "eachConnection", (_, args, original) => {
                 original.apply(this.native, args);
                 web.eachConnection(...args);
             });
+            BdApi.Patcher.instead(NAME, this.native, "supports", (_, args, original) =>
+                args[0] === SAMPLE_PLAYBACK ? false : original.apply(this.native, args));
             for (const method of Object.getOwnPropertyNames(Object.getPrototypeOf(web))) {
                 if (["constructor", "destroy", "getCodecSurvey", "getMLSSigningKey", "rankRtcRegions",
                     "supports", "eachConnection", "getCodecCapabilities", "getVideoInputDevices", "setVideoInputDevice",
@@ -124,7 +145,7 @@ module.exports = class Soundboard {
                     });
                 }
             }
-            web.emit(factory.bg.DeviceChange, ...devices);
+            web.emit(events.DeviceChange, ...devices);
             if (reconnect && !this.stopped) await channels.selectVoiceChannel(channelId);
             BdApi.UI.showToast("Soundboard is ready.", { type: "success" });
         } catch (error) {
@@ -178,15 +199,35 @@ module.exports = class Soundboard {
     }
 
     loadBuffer(sound, context) {
-        if (!this.buffers.has(sound.id)) {
-            const loading = Promise.resolve().then(() => {
+        const cache = this.buffers;
+        let entry = cache.get(sound.id);
+        if (entry) {
+            cache.delete(sound.id);
+            cache.set(sound.id, entry);
+        } else {
+            entry = { bytes: 0, promise: null };
+            entry.promise = Promise.resolve().then(() => {
                 const bytes = require("fs").readFileSync(this.audioPath(sound.id), null);
                 return context.decodeAudioData(Uint8Array.from(bytes).buffer);
+            }).then(buffer => {
+                entry.bytes = buffer.length * buffer.numberOfChannels * Float32Array.BYTES_PER_ELEMENT;
+                if (entry.bytes > AUDIO_CACHE_BYTES) {
+                    if (cache.get(sound.id) === entry) cache.delete(sound.id);
+                    return buffer;
+                }
+                let bytes = [...cache.values()].reduce((total, cached) => total + cached.bytes, 0);
+                for (const [id, cached] of cache) {
+                    if (bytes <= AUDIO_CACHE_BYTES) break;
+                    if (!cached.bytes) continue;
+                    cache.delete(id);
+                    bytes -= cached.bytes;
+                }
+                return buffer;
             });
-            this.buffers.set(sound.id, loading);
-            loading.catch(() => this.buffers.delete(sound.id));
+            cache.set(sound.id, entry);
+            entry.promise.catch(() => { if (cache.get(sound.id) === entry) cache.delete(sound.id); });
         }
-        return this.buffers.get(sound.id);
+        return entry.promise;
     }
 
     async play(sound, preview = false) {
@@ -205,14 +246,29 @@ module.exports = class Soundboard {
         const gain = context.createGain();
         source.buffer = buffer;
         source.soundId = sound.id;
+        source.sound = sound;
         source.preview = preview;
-        gain.gain.value = (sound.volume ?? 1) * (preview ? this.settings.volume : 1);
+        source.gainNode = gain;
         source.connect(gain).connect(preview ? context.destination : this.effects);
         source.onended = () => { source.disconnect(); gain.disconnect(); this.sources.delete(source); this.updatePlaybackState(); };
         this.sources.add(source);
+        this.updateVolumes();
         const start = sound.start ?? 0;
         source.start(0, start, (sound.end ?? buffer.duration) - start);
         this.updatePlaybackState();
+    }
+
+    updateVolumes() {
+        if (this.effects) this.effects.gain.value = this.settings.volume;
+        for (const source of this.sources || []) {
+            source.gainNode.gain.value = (source.sound.volume ?? 1) * (source.preview ? this.settings.volume : 1);
+        }
+    }
+
+    toggleSound(sound, preview = false) {
+        const sources = [...this.sources].filter(source => source.soundId === sound.id && Boolean(source.preview) === preview);
+        if (sources.length) sources.forEach(source => source.stop());
+        else return this.play(sound, preview);
     }
 
     stopSounds() {
@@ -237,7 +293,7 @@ module.exports = class Soundboard {
         if (this.native) {
             const native = this.native;
             Promise.all([native.getAudioInputDevices(), native.getAudioOutputDevices(), native.getVideoInputDevices()])
-                .then(devices => native.emit(BdApi.Webpack.getByKeys("WI", "hB").bg.DeviceChange, ...devices))
+                .then(devices => native.emit(this.mediaEvents.DeviceChange, ...devices))
                 .catch(error => console.error(NAME, error));
         }
     }
@@ -251,6 +307,7 @@ module.exports = class Soundboard {
         if (this.menuFrame) cancelAnimationFrame(this.menuFrame);
         this.stateStores?.forEach(store => store?.removeChangeListener?.(this.onStateChange));
         document.querySelector("#soundboard-menu")?.remove();
+        document.querySelector("#soundboard-quick-menu")?.remove();
         document.removeEventListener("keydown", this.onKey);
         window.removeEventListener("blur", this.onBlur);
         document.removeEventListener("mousedown", this.onKey);
@@ -379,6 +436,8 @@ module.exports = class Soundboard {
         BdApi.Data.save(NAME, "settings", this.settings);
         document.querySelector("#soundboard-menu")?.remove();
         this.mountMenu();
+        document.querySelector("#soundboard-quick-menu")?.remove();
+        this.mountQuickMenu();
     }
 
     audioPath(id) {
@@ -400,11 +459,29 @@ module.exports = class Soundboard {
     updatePlaybackState() {
         const ready = [...this.graphs.values()].some(Boolean) && !BdApi.Webpack.getStore("MediaEngineStore").isMute();
         for (const button of document.querySelectorAll(".soundboard-broadcast")) {
-            button.disabled = !ready;
-            button.title = ready ? "Play in voice call" : "Join a voice call and unmute to play";
+            const playing = button.dataset.soundboardToggle && [...this.sources].some(source => source.soundId === button.dataset.soundboardToggle && !source.preview);
+            button.disabled = !ready && !playing;
+            button.title = this.t(playing ? "Stop this sound" : ready ? "Play in voice call" : "Join a voice call and unmute to play");
+            if (button.dataset.soundboardToggle) this.buttonLabel(button, playing ? "■ Stop" : "▶ Play");
+        }
+        for (const button of document.querySelectorAll("[data-soundboard-preview-toggle]")) {
+            const playing = [...this.sources].some(source => source.soundId === button.dataset.soundboardPreviewToggle && source.preview);
+            if (button.classList.contains("soundboard-action")) {
+                button.querySelector("svg").style.display = playing ? "none" : "";
+                button.querySelector(".soundboard-button-label").hidden = !playing;
+            } else this.buttonLabel(button, playing ? "■ Stop preview" : "Preview");
+            button.title = this.t(playing ? "■ Stop preview" : "Only you can hear this");
+            button.setAttribute("aria-pressed", String(playing));
         }
         for (const tile of document.querySelectorAll("[data-soundboard-id]")) {
-            tile.classList.toggle("soundboard-playing", [...this.sources].some(source => source.soundId === tile.dataset.soundboardId));
+            const sources = [...this.sources].filter(source => source.soundId === tile.dataset.soundboardId);
+            tile.classList.toggle("soundboard-playing", sources.length > 0);
+            const status = tile.querySelector(".soundboard-status");
+            if (status) {
+                status.hidden = !sources.length;
+                const text = this.t(sources.some(source => !source.preview) ? "Playing" : "Preview");
+                if (status.textContent !== text) status.textContent = text;
+            }
         }
     }
 
@@ -492,18 +569,87 @@ module.exports = class Soundboard {
         }
     }
 
+    t(text) {
+        if (!this.nativeLabels) {
+            this.nativeMessages = BdApi.Webpack.getModule(value => value?.t && typeof value.intl?.string === "function");
+            this.nativeLabels = new Map();
+            for (const token of Object.values(this.nativeMessages?.t || {})) {
+                try {
+                    const english = token("en-US").reserialize();
+                    if (["Edit", "Cancel", "Search"].includes(english)) this.nativeLabels.set(english, token);
+                } catch {}
+            }
+        }
+        const token = this.nativeLabels.get(text);
+        if (token) return this.nativeMessages.intl.string(token);
+        if (!(this.nativeMessages?.intl.currentLocale || BdApi.Webpack.getStore("LocaleStore")?.getLocale() || navigator.language).startsWith("pt")) return text;
+        const labels = {
+            "Your sounds": "Seus sons", "Discord sounds": "Sons do Discord", "Manage sounds": "Gerenciar sons",
+            "Search your sounds": "Buscar seus sons", "Search sounds": "Buscar sons",
+            "Search your sound library": "Buscar na sua biblioteca de sons", "Stop all": "Parar todos",
+            "Favorites": "Favoritos", "Other sounds": "Outros sons", "Show favorites only": "Mostrar apenas favoritos",
+            "Add to favorites": "Adicionar aos favoritos", "Remove from favorites": "Remover dos favoritos",
+            "No matching sounds.": "Nenhum som encontrado.", "Add an audio file to get started.": "Adicione um áudio para começar.",
+            "+ Add sounds": "+ Adicionar sons", "Hear my sounds": "Ouvir meus sons", "Master volume": "Volume geral",
+            "▶ Play": "▶ Reproduzir", "■ Stop": "■ Parar", "Preview": "Prévia", "■ Stop preview": "■ Parar prévia",
+            "Only you can hear this": "Só você pode ouvir", "Preview: only you can hear this": "Prévia: só você pode ouvir",
+            "Edit": "Editar", "Edit clip": "Recortar áudio", "Volume": "Volume", "Sound name": "Nome do som",
+            "Choose emoji": "Escolher emoji", "Remove emoji": "Remover emoji", "Cancel": "Cancelar", "Done": "Concluir",
+            "Record hotkey": "Gravar atalho", "Remove sound": "Remover som", "Sound removed": "Som removido", "Undo": "Desfazer",
+            "Remove hotkey": "Remover atalho",
+            "Playing": "Reproduzindo",
+            "Click, then press keys or a middle/side mouse button. Backspace clears it.": "Clique e pressione as teclas ou um botão central/lateral do mouse. Backspace remove o atalho.",
+            "Play in voice call": "Reproduzir na chamada", "Stop this sound": "Parar este som",
+            "Join a voice call and unmute to play": "Entre em uma chamada e ative o microfone para reproduzir",
+            "Start (s)": "Início (s)", "End (s)": "Fim (s)", "Use full audio": "Usar áudio completo",
+            "Waveform: drag near either edge of the selection to trim": "Forma de onda: arraste as extremidades da seleção para recortar",
+            "No sounds match your search.": "Nenhum som corresponde à busca.",
+            "Add audio files above or drop them here.": "Adicione arquivos de áudio acima ou solte-os aqui.",
+            "Your sounds, in any voice call. Use global keyboard or mouse hotkeys, or preview a sound just for yourself.": "Seus sons em qualquer chamada. Use atalhos globais de teclado ou mouse, ou ouça uma prévia privada.",
+            "Unmute to send sounds to the call. Previews are always private. Enabling during a call briefly reconnects you; disabling disconnects the call.": "Ative o microfone para enviar sons à chamada. As prévias são sempre privadas. Ativar o plugin durante uma chamada reconecta você brevemente; desativá-lo desconecta a chamada."
+        };
+        if (labels[text]) return labels[text];
+        return text.replace(/^(\d+(?: \/ \d+)?) sounds?$/, "$1 sons")
+            .replace(/^Favorite /, "Favoritar ").replace(/^Emoji for /, "Emoji de ")
+            .replace(/^Hotkey for /, "Atalho de ").replace(/^Volume for /, "Volume de ")
+            .replace(/^Remove /, "Remover ").replace(/^Preview (.+) locally$/, "Ouvir prévia de $1")
+            .replace(/^Play (.+) in voice call$/, "Reproduzir $1 na chamada")
+            .replace(/^start in seconds for /, "Início em segundos de ").replace(/^end in seconds for /, "Fim em segundos de ");
+    }
+
+    localize(root) {
+        for (const node of root.querySelectorAll("[title],[aria-label],[placeholder]")) {
+            for (const attribute of ["title", "aria-label", "placeholder"]) {
+                if (node.hasAttribute(attribute)) node.setAttribute(attribute, this.t(node.getAttribute(attribute)));
+            }
+        }
+        return root;
+    }
+
     uiNode(tag, className, text) {
         const node = document.createElement(tag);
         node.className = className;
-        if (text !== undefined) node.textContent = text;
+        if (text !== undefined) node.textContent = className === "soundboard-truncate" ? text : this.t(text);
         return node;
     }
 
     uiButton(label, action, variant = "secondary") {
-        const button = this.uiNode("button", `soundboard-button soundboard-${variant}`, label);
+        const button = this.uiNode("button", `soundboard-button soundboard-${variant}`);
+        const icons = {
+            edit: '<path d="m15 5 4 4M4 20l4-1L20 7a2.8 2.8 0 0 0-4-4L4 15z"/>',
+            trim: '<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="m8 8 12 12M8 16 20 4"/>',
+            "preview-toggle": '<path d="M3 14v-3a9 9 0 0 1 18 0v3M3 13h4v8H5a2 2 0 0 1-2-2zm18 0h-4v8h2a2 2 0 0 0 2-2z"/>'
+        };
+        if (icons[variant]) button.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[variant]}</svg>`;
+        if (label) button.append(this.uiNode("span", "soundboard-button-label", label));
         button.type = "button";
         button.onclick = () => Promise.resolve().then(action).catch(error => this.error(error));
         return button;
+    }
+
+    buttonLabel(button, label) {
+        const target = button.querySelector(".soundboard-button-label") || button;
+        target.textContent = this.t(label);
     }
 
     uiStyle() {
@@ -521,7 +667,14 @@ module.exports = class Soundboard {
             .soundboard-button:focus-visible,.soundboard-key:focus-visible { outline:2px solid var(--brand-500,#5865f2);outline-offset:2px; }
             .soundboard-primary { color:#fff;background:var(--brand-500,#5865f2); }
             .soundboard-primary:hover { background:var(--brand-560,#4752c4); }
-            .soundboard-menu { flex:0 1 auto;min-height:100px;max-height:240px;overflow-y:auto;padding:12px 12px 12px 6px;border-bottom:1px solid var(--background-modifier-accent,#ffffff14); }
+            .soundboard-menu { display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;padding:12px; }
+            .soundboard-menu[data-view=native] { flex:0 0 auto; }
+            #soundboard-menu[data-view=custom] ~ :not(span) { display:none!important; }
+            #soundboard-menu[data-view=native] ~ :has(>[data-list-id="soundboard-picker-categories"]) { margin-top:54px; }
+            .soundboard-menu[data-view=native]>.soundboard-menu-tools,.soundboard-menu[data-view=native]>.soundboard-grid { display:none; }
+            .soundboard-menu .soundboard-grid { min-height:0;overflow-y:auto;align-content:start; }
+            .soundboard-menu [hidden] { display:none; }
+            .soundboard-tab[aria-selected=true] { background:var(--background-modifier-selected,#45474e); }
             .soundboard-menu .soundboard-button { font-size:12px;min-height:30px;padding:5px 10px; }
             .soundboard-grid { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px; }
             .soundboard-grid .soundboard-sound { min-height:36px;padding:0 12px;font-size:14px;border:0;border-radius:8px;background:color-mix(in srgb,currentColor 6%,transparent); }
@@ -533,6 +686,9 @@ module.exports = class Soundboard {
             .soundboard-preview { left:2px; }
             .soundboard-favorite { right:2px; }
             .soundboard-favorite[aria-pressed=true] { color:var(--status-warning,#f0b232); }
+            .soundboard-tile[data-favorite=true]>.soundboard-favorite { opacity:1; }
+            .soundboard-tile[data-favorite=true]>.soundboard-sound { padding-right:34px;background:color-mix(in srgb,var(--status-warning,#f0b232) 12%,transparent); }
+            .soundboard-group { grid-column:1/-1;padding-top:4px;font-size:12px;font-weight:600;color:var(--text-muted,#a4a9b2); }
             .soundboard-playing { box-shadow:inset 0 0 0 2px var(--brand-500,#5865f2); }
             .soundboard-menu-tools { display:flex;gap:6px;align-items:center;margin-top:8px; }
             .soundboard-search,.soundboard-text { min-width:0;padding:7px 9px;border:1px solid var(--background-modifier-accent,#ffffff20);border-radius:6px;color:inherit;background:var(--input-background,var(--background-tertiary,#1e1f22));font:inherit; }
@@ -543,6 +699,12 @@ module.exports = class Soundboard {
             .soundboard-sound-icon { display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:20px;height:20px;font-size:20px;line-height:1; }
             .soundboard-truncate { overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0; }
             .soundboard-panel { display:grid;gap:18px;padding:4px 0; }
+            .soundboard-panel>.soundboard-toolbar { position:sticky;top:0;z-index:3;padding:8px 0;background:var(--background-primary,#232428); }
+            .soundboard-library>.soundboard-search { position:sticky;top:50px;z-index:2; }
+            .soundboard-details { display:grid;gap:10px; }
+            .soundboard-details[hidden] { display:none; }
+            .soundboard-quick { padding:10px 0 0;border-top:1px solid var(--background-modifier-accent,#ffffff14);margin-top:10px; }
+            .bd-modal-root.bd-modal-medium:has(.soundboard-panel) { height:min(760px,90vh);max-height:90vh;max-width:calc(100vw - 32px); }
             .soundboard-description { margin:0;color:var(--text-muted,#a4a9b2);font-size:13px; }
             .soundboard-toolbar { justify-content:flex-start; }
             .soundboard-options { display:grid;gap:16px;padding:14px;border:1px solid var(--background-modifier-accent,#ffffff14);border-radius:9px;background:var(--background-secondary,#232428); }
@@ -557,14 +719,28 @@ module.exports = class Soundboard {
             .soundboard-library { display:grid;gap:10px; }
             .soundboard-list { display:grid;gap:8px;padding:2px; }
             .soundboard-row { display:grid;gap:10px;padding:10px;border:1px solid var(--background-modifier-accent,#ffffff14);border-radius:8px;background:var(--background-secondary,#232428); }
-            .soundboard-row-main { display:grid;grid-template-columns:38px minmax(0,1fr) 116px 28px;gap:6px;align-items:center; }
-            .soundboard-row-controls { display:flex;gap:8px;align-items:center; }
+            .soundboard-row { transition:background-color .12s,border-color .12s; }
+            .soundboard-row:hover { border-color:var(--background-modifier-accent,#ffffff28);background:color-mix(in srgb,var(--background-secondary,#232428) 94%,var(--text-default,#fff)); }
+            .soundboard-row.soundboard-playing { border-color:var(--brand-500,#5865f2);background:color-mix(in srgb,var(--brand-500,#5865f2) 10%,var(--background-secondary,#232428));box-shadow:inset 0 0 0 1px var(--brand-500,#5865f2); }
+            .soundboard-summary { display:grid;grid-template-columns:38px minmax(0,1fr) auto;gap:10px; }
+            .soundboard-row-heading { display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;min-width:0; }
+            .soundboard-row-heading>.soundboard-truncate { flex:1 1 120px; }
+            .soundboard-hotkey-badge { max-width:160px;padding:2px 6px;border:1px solid var(--background-modifier-accent,#ffffff20);border-radius:4px;font:11px var(--font-code,monospace);color:var(--text-muted,#a4a9b2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+            .soundboard-status { display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--brand-360,#a5adff); }
+            .soundboard-status::before { content:"";width:5px;height:5px;border-radius:50%;background:currentColor; }
+            .soundboard-hotkey-badge[hidden],.soundboard-status[hidden] { display:none; }
+            .soundboard-row-main { display:grid;grid-template-columns:minmax(0,1fr) 116px 28px;gap:6px;align-items:center; }
+            .soundboard-hotkey { display:grid;gap:4px; }
+            .soundboard-clear-key { min-height:24px;padding:3px 6px;font-size:12px; }
+            .soundboard-row[hidden] { display:none; }
+            .soundboard-row-controls { display:flex;flex-wrap:wrap;gap:8px;align-items:center; }
             .soundboard-clip[hidden] { display:none; }
             .soundboard-waveform { display:block;width:100%;height:90px;background:#191a1d;border-radius:6px;cursor:ew-resize;touch-action:none; }
             .soundboard-clip-fields { display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:10px; }
             .soundboard-clip-fields label { display:grid;gap:4px;font-size:12px; }
             .soundboard-clip-fields input { width:110px; }
-            .soundboard-row-controls label { display:flex;gap:6px;align-items:center;flex:1;font-size:12px;color:var(--text-muted,#a4a9b2); }
+            .soundboard-row-controls label { display:flex;gap:6px;align-items:center;flex:0 1 180px;margin-left:auto;font-size:12px;color:var(--text-muted,#a4a9b2); }
+            .soundboard-row-controls label>.soundboard-count { min-width:30px;text-align:right; }
             .soundboard-row-controls input { width:100%;min-width:40px;accent-color:var(--brand-500,#5865f2); }
             .soundboard-row-controls .soundboard-button { min-height:28px;padding:4px 8px;font-size:12px; }
             .soundboard-text { width:100%;font-size:13px; }
@@ -622,7 +798,7 @@ module.exports = class Soundboard {
                 apply(emoji.id ? { id: emoji.id, name: emoji.name, animated: Boolean(emoji.animated) } : emoji.surrogates);
                 modals.closeModal(modal);
             }
-        })), { size: "bd-modal-medium", confirmText: "Remove emoji", cancelText: "Cancel", onConfirm: () => apply("") });
+        })), { size: "bd-modal-medium", confirmText: this.t("Remove emoji"), cancelText: this.t("Cancel"), onConfirm: () => apply("") });
     }
 
     favoriteButton(sound) {
@@ -630,7 +806,7 @@ module.exports = class Soundboard {
             sound.favorite = !sound.favorite;
             button.textContent = sound.favorite ? "★" : "☆";
             button.setAttribute("aria-pressed", String(sound.favorite));
-            button.title = sound.favorite ? "Remove from favorites" : "Add to favorites";
+            button.title = this.t(sound.favorite ? "Remove from favorites" : "Add to favorites");
             this.save();
         }, "favorite");
         button.setAttribute("aria-label", `Favorite ${sound.name}`);
@@ -639,21 +815,69 @@ module.exports = class Soundboard {
         return button;
     }
 
+    soundTile(sound) {
+        const tile = this.uiNode("div", "soundboard-tile");
+        tile.dataset.soundboardId = sound.id;
+        tile.dataset.favorite = String(Boolean(sound.favorite));
+        const button = this.uiButton("", () => this.play(sound), "sound soundboard-broadcast");
+        button.setAttribute("aria-label", `Play ${sound.name} in voice call`);
+        const label = this.uiNode("span", "soundboard-sound-label");
+        label.append(this.emojiNode(sound), this.uiNode("span", "soundboard-truncate", sound.name));
+        button.append(label);
+        const preview = this.uiButton("", () => this.toggleSound(sound, true), "action soundboard-preview");
+        preview.dataset.soundboardPreviewToggle = sound.id;
+        preview.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4zM15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/></svg>';
+        const stopLabel = this.uiNode("span", "soundboard-button-label", "■");
+        stopLabel.hidden = true;
+        preview.append(stopLabel);
+        preview.title = "Preview: only you can hear this";
+        preview.setAttribute("aria-label", `Preview ${sound.name} locally`);
+        const favorite = this.favoriteButton(sound);
+        favorite.classList.add("soundboard-action");
+        tile.title = sound.name + (sound.key ? ` (${this.displayKey(sound.key)})` : "");
+        tile.append(button, preview, favorite);
+        return this.localize(tile);
+    }
+
+    mountQuickMenu() {
+        if (document.querySelector("#soundboard-quick-menu")) return;
+        const list = document.querySelector("[class*=soundButtonWrapper]")?.closest('[role="list"]');
+        if (!list || list.closest('[role="dialog"]')?.querySelector('[data-list-id="soundboard-picker-categories"]')) return;
+        const sounds = this.settings.sounds.filter(sound => sound.favorite).slice(0, 6);
+        if (!sounds.length) return;
+        const section = this.uiNode("section", "soundboard-root soundboard-quick");
+        section.id = "soundboard-quick-menu";
+        const grid = this.uiNode("div", "soundboard-grid");
+        grid.append(...sounds.map(sound => this.soundTile(sound)));
+        section.append(this.uiStyle(), this.uiNode("strong", "soundboard-title", "Favorites"), grid);
+        list.after(section);
+        this.updatePlaybackState();
+    }
+
     mountMenu() {
         if (document.querySelector("#soundboard-menu")) return;
-        const picker = document.querySelector("[class*=soundButtonWrapper]")?.closest('[role="dialog"]');
+        const picker = document.querySelector('[data-list-id="soundboard-picker-categories"]')?.closest('[role="dialog"]');
         if (!picker) return;
         const section = this.uiNode("section", "soundboard-root soundboard-menu");
         section.id = "soundboard-menu";
-        const nativeGrid = picker.querySelector('[role="grid"]');
-        section.style.marginLeft = `${nativeGrid?.offsetLeft || 0}px`;
         const header = this.uiNode("div", "soundboard-header");
-        const title = this.uiNode("strong", "soundboard-title", "Soundboard");
-        title.append(this.uiNode("span", "soundboard-count", ` · ${this.settings.sounds.length}`));
+        const tabs = this.uiNode("div", "soundboard-toolbar");
+        tabs.setAttribute("role", "tablist");
+        for (const [view, label] of [["custom", "Your sounds"], ["native", "Discord sounds"]]) {
+            const tab = this.uiButton(label, () => {
+                section.dataset.view = view;
+                for (const button of tabs.children) button.setAttribute("aria-selected", String(button === tab));
+                manage.hidden = view === "native";
+            }, "tab");
+            tab.setAttribute("role", "tab");
+            tab.setAttribute("aria-selected", String(view === "custom"));
+            tabs.append(tab);
+        }
+        section.dataset.view = "custom";
         const manage = this.uiButton("Manage sounds", () => BdApi.UI.showConfirmationModal("Soundboard", BdApi.React.createElement("div", {
             ref: node => { if (node) node.replaceChildren(this.getSettingsPanel()); }
-        }), { confirmText: "Done", cancelText: null }));
-        header.append(title, manage);
+        }), { size: "bd-modal-medium", confirmText: this.t("Done"), cancelText: null }));
+        header.append(tabs, manage);
         const tools = this.uiNode("div", "soundboard-menu-tools");
         const search = this.uiNode("input", "soundboard-search");
         search.placeholder = "Search your sounds";
@@ -674,34 +898,21 @@ module.exports = class Soundboard {
             const query = search.value.trim().toLocaleLowerCase();
             const sounds = this.settings.sounds.filter(sound => (!this.favoritesOnly || sound.favorite) && sound.name.toLocaleLowerCase().includes(query))
                 .sort((a, b) => Number(Boolean(b.favorite)) - Number(Boolean(a.favorite)));
-            for (const sound of sounds) {
-                const tile = this.uiNode("div", "soundboard-tile");
-                tile.dataset.soundboardId = sound.id;
-                const button = this.uiButton("", () => this.play(sound), "sound soundboard-broadcast");
-                button.setAttribute("aria-label", `Play ${sound.name} in voice call`);
-                const label = this.uiNode("span", "soundboard-sound-label");
-                label.append(this.emojiNode(sound), this.uiNode("span", "soundboard-truncate", sound.name));
-                button.append(label);
-                const preview = this.uiButton("", () => this.play(sound, true), "action soundboard-preview");
-                preview.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4zM15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/></svg>';
-                preview.title = "Preview: only you can hear this";
-                preview.setAttribute("aria-label", `Preview ${sound.name} locally`);
-                const favorite = this.favoriteButton(sound);
-                favorite.classList.add("soundboard-action");
-                tile.title = sound.name + (sound.key ? ` (${this.displayKey(sound.key)})` : "");
-                tile.append(button, preview, favorite);
-                grid.append(tile);
+            const hasFavorites = sounds.some(sound => sound.favorite);
+            for (const [index, sound] of sounds.entries()) {
+                if (hasFavorites && (index === 0 || Boolean(sound.favorite) !== Boolean(sounds[index - 1].favorite))) {
+                    grid.append(this.uiNode("div", "soundboard-group", sound.favorite ? "Favorites" : "Other sounds"));
+                }
+                grid.append(this.soundTile(sound));
             }
             if (!sounds.length) grid.append(this.uiNode("div", "soundboard-empty", this.settings.sounds.length ? "No matching sounds." : "Add an audio file to get started."));
             this.updatePlaybackState();
         };
         search.oninput = () => { this.search = search.value; render(); };
         section.append(this.uiStyle(), header, tools, grid);
-        let top = picker.querySelector("input");
-        while (top?.parentElement && !top.parentElement.contains(nativeGrid)) top = top.parentElement;
-        if (top && nativeGrid) top.after(section);
-        else picker.append(section);
+        picker.prepend(section);
         render();
+        this.localize(section);
     }
 
     async createClipEditor(sound) {
@@ -785,7 +996,7 @@ module.exports = class Soundboard {
         fields.append(full, duration);
         editor.append(canvas, fields);
         draw();
-        return editor;
+        return this.localize(editor);
     }
 
     getSettingsPanel() {
@@ -849,7 +1060,7 @@ module.exports = class Soundboard {
         volume.oninput = () => {
             this.settings.volume = Number(volume.value);
             percentage.textContent = `${Math.round(this.settings.volume * 100)}%`;
-            if (this.effects) this.effects.gain.value = this.settings.volume;
+            this.updateVolumes();
         };
         volume.onchange = () => this.save();
         volumeGroup.append(volumeLabel, volume);
@@ -860,24 +1071,61 @@ module.exports = class Soundboard {
         heading.append(this.uiNode("strong", "soundboard-title", "Your sounds"), count);
         const list = this.uiNode("div", "soundboard-list");
         const keyInputs = new Map();
+        const search = this.uiNode("input", "soundboard-search");
+        search.type = "search";
+        search.placeholder = "Search sounds";
+        search.setAttribute("aria-label", "Search your sound library");
         const empty = this.uiNode("div", "soundboard-empty", "Add audio files above or drop them here.");
         list.append(empty);
+        const normalizeSearch = value => value.toLowerCase().replace(/\s*\+\s*/g, "+");
         const updateCount = () => {
-            count.textContent = `${this.settings.sounds.length} sound${this.settings.sounds.length === 1 ? "" : "s"}`;
-            empty.hidden = this.settings.sounds.length > 0;
+            const query = normalizeSearch(search.value.trim());
+            let visible = 0;
+            for (const sound of this.settings.sounds) {
+                const matches = normalizeSearch(`${sound.name} ${this.displayKey(sound.key)}`).includes(query);
+                keyInputs.get(sound).closest(".soundboard-row").hidden = !matches;
+                keyInputs.get(sound).nextElementSibling.disabled = !sound.key;
+                const badge = keyInputs.get(sound).closest(".soundboard-row").querySelector(".soundboard-hotkey-badge");
+                badge.textContent = this.displayKey(sound.key);
+                badge.title = badge.textContent;
+                badge.hidden = !sound.key;
+                if (matches) visible++;
+            }
+            const total = this.settings.sounds.length;
+            count.textContent = this.t(`${query ? `${visible} / ` : ""}${total} sound${total === 1 ? "" : "s"}`);
+            empty.textContent = this.t(total ? "No sounds match your search." : "Add audio files above or drop them here.");
+            empty.hidden = visible > 0;
         };
+        search.oninput = updateCount;
         const addSound = sound => {
             const row = this.uiNode("div", "soundboard-row");
             row.dataset.soundboardId = sound.id;
+            const summary = this.uiNode("div", "soundboard-header soundboard-summary");
+            const title = this.uiNode("strong", "soundboard-truncate", sound.name);
+            const heading = this.uiNode("div", "soundboard-row-heading");
+            const badge = this.uiNode("kbd", "soundboard-hotkey-badge");
+            const status = this.uiNode("span", "soundboard-status");
+            status.hidden = true;
+            status.setAttribute("role", "status");
+            heading.append(title, badge, status);
+            const details = this.uiNode("div", "soundboard-details");
+            details.hidden = true;
+            const edit = this.uiButton("Edit", () => {
+                details.hidden = !details.hidden;
+                edit.setAttribute("aria-expanded", String(!details.hidden));
+            }, "edit");
+            edit.setAttribute("aria-expanded", "false");
+            summary.append(heading, edit);
             const main = this.uiNode("div", "soundboard-row-main");
             const emoji = this.uiButton("", () => this.chooseEmoji(sound, () => emoji.replaceChildren(this.emojiNode(sound, true))), "emoji");
             emoji.append(this.emojiNode(sound, true));
             emoji.title = "Choose emoji";
             emoji.setAttribute("aria-label", `Emoji for ${sound.name}`);
+            summary.prepend(emoji);
             const name = this.uiNode("input", "soundboard-text");
             name.value = sound.name;
             name.setAttribute("aria-label", "Sound name");
-            name.onchange = () => { sound.name = name.value.trim() || sound.name; name.value = sound.name; this.save(); };
+            name.onchange = () => { sound.name = name.value.trim() || sound.name; name.value = title.textContent = sound.name; this.save(); updateCount(); };
             const key = this.uiNode("input", "soundboard-key");
             key.placeholder = "Record hotkey";
             key.title = "Click, then press keys or a middle/side mouse button. Backspace clears it.";
@@ -901,6 +1149,7 @@ module.exports = class Soundboard {
                 this.bindGlobalKeys();
                 this.clearMouseRecording();
                 key.blur();
+                updateCount();
             };
             key.onkeydown = record;
             key.onkeyup = event => {
@@ -912,6 +1161,7 @@ module.exports = class Soundboard {
             key.onfocus = () => { this.recordMouse(key, record); this.onRecordMouse = onMouse; window.addEventListener("mousedown", onMouse, true); };
             key.onblur = () => this.clearMouseRecording();
             const remove = this.uiButton("×", () => {
+                const index = this.settings.sounds.indexOf(sound);
                 this.settings.sounds = this.settings.sounds.filter(item => item !== sound);
                 this.buffers.delete(sound.id);
                 keyInputs.delete(sound);
@@ -919,23 +1169,42 @@ module.exports = class Soundboard {
                 this.bindGlobalKeys();
                 row.remove();
                 updateCount();
+                const close = BdApi.UI.showNotice(`${this.t("Sound removed")}: ${sound.name}`, { buttons: [{ label: this.t("Undo"), onClick: () => {
+                    clearTimeout(timer);
+                    this.settings.sounds.splice(index, 0, sound);
+                    const restored = addSound(sound);
+                    list.insertBefore(restored, list.children[index + 1] || null);
+                    this.save();
+                    this.bindGlobalKeys();
+                    updateCount();
+                    close?.();
+                } }] });
+                const timer = setTimeout(() => {
+                    close?.();
+                    require("fs").rm(this.audioPath(sound.id), { force: true }, error => error && console.error(NAME, error));
+                }, 8000);
             }, "remove");
             remove.title = "Remove sound";
             remove.setAttribute("aria-label", `Remove ${sound.name}`);
-            main.append(emoji, name, key, remove);
+            const hotkey = this.uiNode("div", "soundboard-hotkey");
+            const clearKey = this.uiButton("Remove hotkey", () => record(new KeyboardEvent("keydown", { key: "Backspace", code: "Backspace" })), "clear-key");
+            hotkey.append(key, clearKey);
+            main.append(name, hotkey, remove);
             const controls = this.uiNode("div", "soundboard-row-controls");
-            const play = this.uiButton("▶ Play", () => this.play(sound), "broadcast");
-            const preview = this.uiButton("Preview", () => this.play(sound, true));
+            const play = this.uiButton("▶ Play", () => this.toggleSound(sound), "broadcast");
+            play.dataset.soundboardToggle = sound.id;
+            const preview = this.uiButton("Preview", () => this.toggleSound(sound, true), "preview-toggle");
+            preview.dataset.soundboardPreviewToggle = sound.id;
             preview.title = "Only you can hear this";
             let editor;
             const trim = this.uiButton("Edit clip", async () => {
                 trim.disabled = true;
                 try {
-                    if (!editor) { editor = await this.createClipEditor(sound); row.append(editor); }
+                    if (!editor) { editor = await this.createClipEditor(sound); details.append(editor); }
                     else editor.hidden = !editor.hidden;
                     trim.setAttribute("aria-expanded", String(!editor.hidden));
                 } finally { trim.disabled = false; }
-            });
+            }, "trim");
             trim.setAttribute("aria-expanded", "false");
             const gainLabel = this.uiNode("label", "", "Volume");
             const gain = document.createElement("input");
@@ -946,18 +1215,21 @@ module.exports = class Soundboard {
             gain.value = sound.volume ?? 1;
             gain.setAttribute("aria-label", `Volume for ${sound.name}`);
             const gainValue = this.uiNode("span", "soundboard-count", `${Math.round(gain.value * 100)}%`);
-            gain.oninput = () => { sound.volume = Number(gain.value); gainValue.textContent = `${Math.round(sound.volume * 100)}%`; };
+            gain.oninput = () => { sound.volume = Number(gain.value); gainValue.textContent = `${Math.round(sound.volume * 100)}%`; this.updateVolumes(); };
             gain.onchange = () => this.save();
             gainLabel.append(gain, gainValue);
-            controls.append(play, preview, trim, this.favoriteButton(sound), gainLabel);
-            row.append(main, controls);
+            controls.append(play, preview, this.favoriteButton(sound), gainLabel);
+            details.append(main, trim);
+            row.append(summary, controls, details);
             list.append(row);
+            this.localize(row);
+            return row;
         };
         this.settings.sounds.forEach(addSound);
         updateCount();
-        library.append(heading, list);
+        library.append(heading, search, list);
         panel.append(toolbar, options, library, this.uiNode("p", "soundboard-description", "Unmute to send sounds to the call. Previews are always private. Enabling during a call briefly reconnects you; disabling disconnects the call."));
         requestAnimationFrame(() => { if (!this.stopped) this.updatePlaybackState(); });
-        return panel;
+        return this.localize(panel);
     }
 };
