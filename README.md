@@ -43,7 +43,8 @@ A BetterDiscord plugin that lets you play your own sounds for everyone in a Disc
 
 <p>
   <strong>Your Sound Library</strong><br>
-  Find sounds with search, mark favorites, choose emojis, and manage hotkeys in one place.
+  Search sounds, save favorites,<br>
+  choose emojis, and manage hotkeys.
 </p>
 
 <br clear="left">
