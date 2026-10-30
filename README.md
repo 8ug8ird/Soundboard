@@ -19,8 +19,12 @@ A BetterDiscord plugin that lets you play your own sounds for everyone in a Disc
 
 ## Features
 
-<img src="assets/img2.png" width="55%" align="left" alt="Soundboard interface">
-
+<table>
+  <tr>
+    <td width="55%" valign="top">
+      <img src="assets/img2.png" width="100%" alt="Soundboard interface">
+    </td>
+    <td width="45%" valign="top">
 <p>
   <strong>Custom Sounds, Heard by Everyone</strong><br>
   Import your audio files and play them directly into the call. No plugin-imposed limits on sound count or audio duration.
@@ -43,11 +47,12 @@ A BetterDiscord plugin that lets you play your own sounds for everyone in a Disc
 
 <p>
   <strong>Your Sound Library</strong><br>
-  Search sounds, save favorites,<br>
+  Search sounds, save favorites,
   choose emojis, and manage hotkeys.
 </p>
-
-<br clear="left">
+    </td>
+  </tr>
+</table>
 
 ## Installation
 
