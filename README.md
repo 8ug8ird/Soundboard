@@ -17,13 +17,14 @@ A BetterDiscord plugin that lets you play your own sounds for everyone in a Disc
 
 </div>
 
+
 ## Features
 
 <img src="assets/img2.png" width="55%" align="left" alt="Soundboard interface">
 
 <p>
   <strong>Custom Sounds</strong><br>
-  Import your audio files and play them directly into the call. No plugin-imposed limits on sound count or audio duration.
+  Import and play audio in calls, with no plugin-imposed limits on count or duration.
 </p>
 
 <p>
@@ -33,12 +34,12 @@ A BetterDiscord plugin that lets you play your own sounds for everyone in a Disc
 
 <p>
   <strong>Waveform & Clip Editing</strong><br>
-  Play the full audio or select a clip using draggable trim handles and precise start/end controls. Restore the full audio without modifying the original file.
+  Trim audio with draggable handles or precise controls, without modifying the original file.
 </p>
 
 <p>
   <strong>Volume & Previews</strong><br>
-  Adjust individual and master volumes while sounds are playing. Preview a sound privately before sending it to the call.
+  Adjust individual and master volumes in real time. Preview sounds privately before playing them in calls.
 </p>
 
 <p>
