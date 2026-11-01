@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://github.com/8ug8ird/Soundboard">
-    <img src="assets/1.png" alt="Soundboard" width="600">
+    <img src="assets/img.png" alt="Soundboard" width="800">
   </a>
 </p>
 
