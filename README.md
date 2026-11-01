@@ -19,40 +19,34 @@ A BetterDiscord plugin that lets you play your own sounds for everyone in a Disc
 
 ## Features
 
-<table>
-  <tr>
-    <td width="55%" valign="top">
-      <img src="assets/img2.png" width="100%" alt="Soundboard interface">
-    </td>
-    <td width="45%" valign="top">
+<img src="assets/img2.png" width="55%" align="left" alt="Soundboard interface">
+
 <p>
-  <strong>Custom Sounds, Heard by Everyone</strong><br>
+  <strong>Custom Sounds</strong><br>
   Import your audio files and play them directly into the call. No plugin-imposed limits on sound count or audio duration.
 </p>
 
 <p>
-  <strong>Global Hotkeys</strong><br>
-  Play sounds with keyboard or mouse shortcuts, even when Discord is unfocused.
+  <strong>Hotkeys</strong><br>
+  Play sounds with global keyboard or mouse shortcuts, even when Discord is unfocused.
 </p>
 
 <p>
-  <strong>Waveform &amp; Clip Editing</strong><br>
+  <strong>Waveform & Clip Editing</strong><br>
   Play the full audio or select a clip using draggable trim handles and precise start/end controls. Restore the full audio without modifying the original file.
 </p>
 
 <p>
-  <strong>Volume &amp; Private Previews</strong><br>
+  <strong>Volume & Previews</strong><br>
   Adjust individual and master volumes while sounds are playing. Preview a sound privately before sending it to the call.
 </p>
 
 <p>
-  <strong>Your Sound Library</strong><br>
-  Search sounds, save favorites,
-  choose emojis, and manage hotkeys.
+  <strong>Sound Library</strong><br>
+  Search sounds, save favorites, choose emojis, and manage hotkeys.
 </p>
-    </td>
-  </tr>
-</table>
+
+<br clear="left">
 
 ## Installation
 
