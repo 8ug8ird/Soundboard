@@ -2,13 +2,13 @@
  * @name Soundboard
  * @author 8ug8ird
  * @authorId 698947564459917343
- * @version 1.2.0
+ * @version 1.3.0
  * @description Play your own sounds in voice calls
  * @source https://github.com/8ug8ird/Soundboard
  */
 
 const NAME = "Soundboard";
-const VERSION = "1.2.0";
+const VERSION = "1.3.0";
 const AUDIO_CACHE_BYTES = 64 * 1024 * 1024;
 const UPDATE_REPO = "8ug8ird/Soundboard";
 const RELEASES_URL = `https://github.com/${UPDATE_REPO}/releases`;
@@ -206,8 +206,13 @@ module.exports = class Soundboard {
             cache.set(sound.id, entry);
         } else {
             entry = { bytes: 0, promise: null };
-            entry.promise = Promise.resolve().then(() => {
-                const bytes = require("fs").readFileSync(this.audioPath(sound.id), null);
+            entry.promise = Promise.resolve().then(async () => {
+                const bytes = sound.url
+                    ? await BdApi.Net.fetch(sound.url).then(response => {
+                        if (!response.ok) throw Error(`HTTP ${response.status}`);
+                        return response.arrayBuffer();
+                    }).then(buffer => new Uint8Array(buffer))
+                    : require("fs").readFileSync(this.audioPath(sound.id), null);
                 return context.decodeAudioData(Uint8Array.from(bytes).buffer);
             }).then(buffer => {
                 entry.bytes = buffer.length * buffer.numberOfChannels * Float32Array.BYTES_PER_ELEMENT;
@@ -584,6 +589,9 @@ module.exports = class Soundboard {
         if (token) return this.nativeMessages.intl.string(token);
         if (!(this.nativeMessages?.intl.currentLocale || BdApi.Webpack.getStore("LocaleStore")?.getLocale() || navigator.language).startsWith("pt")) return text;
         const labels = {
+            "Server sounds": "Sons dos servidores", "Loading server sounds…": "Carregando sons dos servidores…",
+            "No server sounds available.": "Nenhum som disponível nos seus servidores.",
+            "Discord sound loading is unavailable.": "O carregamento de sons do Discord está indisponível.",
             "Your sounds": "Seus sons", "Discord sounds": "Sons do Discord", "Manage sounds": "Gerenciar sons",
             "Search your sounds": "Buscar seus sons", "Search sounds": "Buscar sons",
             "Search your sound library": "Buscar na sua biblioteca de sons", "Stop all": "Parar todos",
@@ -669,7 +677,7 @@ module.exports = class Soundboard {
             .soundboard-primary:hover { background:var(--brand-560,#4752c4); }
             .soundboard-menu { display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;padding:12px; }
             .soundboard-menu[data-view=native] { flex:0 0 auto; }
-            #soundboard-menu[data-view=custom] ~ :not(span) { display:none!important; }
+            #soundboard-menu:is([data-view=custom],[data-view=servers]) ~ :not(span) { display:none!important; }
             #soundboard-menu[data-view=native] ~ :has(>[data-list-id="soundboard-picker-categories"]) { margin-top:54px; }
             .soundboard-menu[data-view=native]>.soundboard-menu-tools,.soundboard-menu[data-view=native]>.soundboard-grid { display:none; }
             .soundboard-menu .soundboard-grid { min-height:0;overflow-y:auto;align-content:start; }
@@ -832,11 +840,29 @@ module.exports = class Soundboard {
         preview.append(stopLabel);
         preview.title = "Preview: only you can hear this";
         preview.setAttribute("aria-label", `Preview ${sound.name} locally`);
-        const favorite = this.favoriteButton(sound);
-        favorite.classList.add("soundboard-action");
+        const favorite = sound.url ? null : this.favoriteButton(sound);
+        favorite?.classList.add("soundboard-action");
         tile.title = sound.name + (sound.key ? ` (${this.displayKey(sound.key)})` : "");
-        tile.append(button, preview, favorite);
+        tile.append(button, preview);
+        if (favorite) tile.append(favorite);
         return this.localize(tile);
+    }
+
+    async getServerSounds() {
+        const fetchSounds = BdApi.Webpack.getModule(value => typeof value === "function"
+            && value.toString().includes("OVERLAY_SOUNDBOARD_SOUNDS_FETCH_REQUEST"), { searchExports: true });
+        if (!fetchSounds) throw Error(this.t("Discord sound loading is unavailable."));
+        await fetchSounds({ disableAnalytics: true });
+        const guilds = BdApi.Webpack.getStore("GuildStore");
+        return [...BdApi.Webpack.getStore("SoundboardStore").getSounds()].flatMap(([guildId, sounds]) => {
+            const guild = guilds.getGuild(guildId);
+            if (!guild) return [];
+            return sounds.filter(sound => sound.available).map(sound => ({
+                id: "discord:" + sound.soundId, name: sound.name, guildId, guildName: guild.name,
+                volume: sound.volume, emoji: sound.emojiId ? { id: sound.emojiId, name: sound.emojiName } : sound.emojiName,
+                url: "https://cdn.discordapp.com/soundboard-sounds/" + sound.soundId
+            }));
+        });
     }
 
     mountQuickMenu() {
@@ -863,11 +889,20 @@ module.exports = class Soundboard {
         const header = this.uiNode("div", "soundboard-header");
         const tabs = this.uiNode("div", "soundboard-toolbar");
         tabs.setAttribute("role", "tablist");
-        for (const [view, label] of [["custom", "Your sounds"], ["native", "Discord sounds"]]) {
-            const tab = this.uiButton(label, () => {
+        let serverSounds = [];
+        for (const [view, label] of [["custom", "Your sounds"], ["servers", "Server sounds"], ["native", "Discord sounds"]]) {
+            const tab = this.uiButton(label, async () => {
                 section.dataset.view = view;
                 for (const button of tabs.children) button.setAttribute("aria-selected", String(button === tab));
-                manage.hidden = view === "native";
+                manage.hidden = view !== "custom";
+                favorites.hidden = view === "servers";
+                search.placeholder = this.t(view === "servers" ? "Search sounds" : "Search your sounds");
+                search.setAttribute("aria-label", search.placeholder);
+                if (view === "servers") {
+                    grid.replaceChildren(this.uiNode("div", "soundboard-empty", "Loading server sounds…"));
+                    try { serverSounds = await this.getServerSounds(); }
+                    finally { render(); }
+                } else render();
             }, "tab");
             tab.setAttribute("role", "tab");
             tab.setAttribute("aria-selected", String(view === "custom"));
@@ -896,16 +931,22 @@ module.exports = class Soundboard {
         const render = () => {
             grid.replaceChildren();
             const query = search.value.trim().toLocaleLowerCase();
-            const sounds = this.settings.sounds.filter(sound => (!this.favoritesOnly || sound.favorite) && sound.name.toLocaleLowerCase().includes(query))
-                .sort((a, b) => Number(Boolean(b.favorite)) - Number(Boolean(a.favorite)));
+            const servers = section.dataset.view === "servers";
+            const sounds = (servers ? serverSounds : this.settings.sounds).filter(sound => (servers || !this.favoritesOnly || sound.favorite) && `${sound.name} ${sound.guildName || ""}`.toLocaleLowerCase().includes(query))
+                .sort((a, b) => servers ? a.guildName.localeCompare(b.guildName) || a.guildId.localeCompare(b.guildId) : Number(Boolean(b.favorite)) - Number(Boolean(a.favorite)));
             const hasFavorites = sounds.some(sound => sound.favorite);
             for (const [index, sound] of sounds.entries()) {
+                if (servers && (index === 0 || sound.guildId !== sounds[index - 1].guildId)) {
+                    const group = this.uiNode("div", "soundboard-group");
+                    group.textContent = sound.guildName;
+                    grid.append(group);
+                }
                 if (hasFavorites && (index === 0 || Boolean(sound.favorite) !== Boolean(sounds[index - 1].favorite))) {
                     grid.append(this.uiNode("div", "soundboard-group", sound.favorite ? "Favorites" : "Other sounds"));
                 }
                 grid.append(this.soundTile(sound));
             }
-            if (!sounds.length) grid.append(this.uiNode("div", "soundboard-empty", this.settings.sounds.length ? "No matching sounds." : "Add an audio file to get started."));
+            if (!sounds.length) grid.append(this.uiNode("div", "soundboard-empty", servers ? (serverSounds.length ? "No matching sounds." : "No server sounds available.") : this.settings.sounds.length ? "No matching sounds." : "Add an audio file to get started."));
             this.updatePlaybackState();
         };
         search.oninput = () => { this.search = search.value; render(); };
