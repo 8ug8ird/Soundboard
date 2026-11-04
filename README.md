@@ -13,7 +13,7 @@
 
 Play your own sounds in Discord voice calls with BetterDiscord.
 
-[Download](https://github.com/8ug8ird/Soundboard/releases/latest) · [Report an issue](https://github.com/8ug8ird/Soundboard/issues) · [Contribute](https://github.com/8ug8ird/Soundboard/pulls)
+[Download](https://github.com/8ug8ird/Soundboard/releases/latest) · [Report an issues](https://github.com/8ug8ird/Soundboard/issues) · [Contribute](https://github.com/8ug8ird/Soundboard/pulls) · [Discussion](https://github.com/8ug8ird/Soundboard/discussions)
 
 </div>
 
