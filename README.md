@@ -1,105 +1,51 @@
 <p align="center">
   <a href="https://github.com/8ug8ird/Soundboard">
-    <img src="assets/img.png" alt="Soundboard" width="700">
+    <img src="assets/1.png" alt="Soundboard" width="700">
   </a>
 </p>
 
 <div align="center">
 
-[![BetterDiscord](https://img.shields.io/badge/BetterDiscord-Plugin-007BFF?style=for-the-badge&logo=discord&logoColor=white)](https://betterdiscord.app)
-[![Latest Release](https://img.shields.io/github/v/release/8ug8ird/Soundboard?style=for-the-badge&label=Latest%20Release&color=007bff)](https://github.com/8ug8ird/Soundboard/releases/latest)
-[![Downloads](https://img.shields.io/github/downloads/8ug8ird/Soundboard/total?style=for-the-badge&label=Downloads&color=007bff)](https://github.com/8ug8ird/Soundboard/releases)
-[![License](https://img.shields.io/badge/License-MIT-007bff?style=for-the-badge)](https://github.com/8ug8ird/Soundboard/blob/main/LICENSE)
+[![BetterDiscord](https://img.shields.io/badge/BetterDiscord-Plugin-0B1025?style=for-the-badge&labelColor=060810&logo=discord&logoColor=white)](https://betterdiscord.app)
+[![Latest Release](https://img.shields.io/github/v/release/8ug8ird/Soundboard?style=for-the-badge&label=Latest%20Release&color=0B1025&labelColor=060810)](https://github.com/8ug8ird/Soundboard/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/8ug8ird/Soundboard/total?style=for-the-badge&label=Downloads&color=0B1025&labelColor=060810)](https://github.com/8ug8ird/Soundboard/releases)
+[![License](https://img.shields.io/badge/License-MIT-0B1025?style=for-the-badge&labelColor=060810)](https://github.com/8ug8ird/Soundboard/blob/main/LICENSE)
 
-A BetterDiscord plugin that lets you play your own sounds for everyone in a Discord voice call to hear.
+Play your own sounds in Discord voice calls with BetterDiscord.
 
-[Download](https://github.com/8ug8ird/Soundboard/releases/latest) · [Report a bug](https://github.com/8ug8ird/Soundboard/issues) · [Contribute](https://github.com/8ug8ird/Soundboard/pulls)
+[Download](https://github.com/8ug8ird/Soundboard/releases/latest) · [Report an issue](https://github.com/8ug8ird/Soundboard/issues) · [Contribute](https://github.com/8ug8ird/Soundboard/pulls)
 
 </div>
 
-
 ## Features
 
-<img src="assets/img2.png" width="55%" align="left" alt="Soundboard interface">
+- **Custom sounds:** Import your own audio and play it for everyone in a voice call.
+- **Global hotkeys:** Trigger sounds from any app.
+- **Clip editing:** Select exactly which part of a sound to play without modifying the original file.
+- **Volume & previews:** Adjust volume and listen privately.
+- **Sound library:** Find sounds quickly, save favorites, and customize them with emojis.
 
-<p>
-  <strong>Custom Sounds</strong><br>
-  Import and play audio in calls, with no plugin-imposed limits on count or duration.
+<br>
+
+<p align="center">
+  <img src="assets/img2.png" alt="Soundboard interface" width="500">
 </p>
-
-<p>
-  <strong>Hotkeys</strong><br>
-  Play sounds with global keyboard or mouse shortcuts, even when Discord is unfocused.
-</p>
-
-<p>
-  <strong>Waveform & Clip Editing</strong><br>
-  Trim audio with draggable handles or precise controls, without modifying the original file.
-</p>
-
-<p>
-  <strong>Volume & Previews</strong><br>
-  Adjust individual and master volumes in real time. Preview sounds privately before playing them in calls.
-</p>
-
-<p>
-  <strong>Sound Library</strong><br>
-  Search sounds, save favorites, choose emojis, and manage hotkeys.
-</p>
-
-<br clear="left">
 
 ## Installation
 
 Requires [BetterDiscord](https://betterdiscord.app).
 
 1. Download `Soundboard.plugin.js` from the [latest release](https://github.com/8ug8ird/Soundboard/releases/latest).
-2. In Discord, go to **Settings → Plugins → Open Plugins Folder**.
-3. Move `Soundboard.plugin.js` into that folder.
-4. Enable **Soundboard** in the Plugins settings.
+2. In Discord, open **Settings → Plugins → Open Plugins Folder**.
+3. Move the file into that folder and enable **Soundboard**.
 
-## Usage
+## How to use
 
-1. Open Discord's Soundboard panel and select **Your sounds → Manage sounds**. You can also open the plugin's settings from **Settings → Plugins**.
-2. Select **Add sounds** to import audio files.
-3. Optionally choose an emoji, assign a hotkey, adjust the volume, or use **Edit clip** to select part of the audio.
-4. Join a voice call and unmute your microphone. Click a sound in the panel, use **Play** in the management window, or press its assigned hotkey to send it to the call.
+1. Open Discord's Soundboard panel and select **Your sounds → Manage sounds**, or open the plugin's settings from **Settings → Plugins**.
+2. Select **Add sounds** to import audio. Optionally assign hotkeys, change volume, or select **Edit clip** to trim playback.
+3. Join a voice call, unmute your microphone, and click a sound, select **Play**, or use its hotkey.
 
-**Sounds are transmitted through your voice connection. Everyone in the call who can hear you can hear them, including people without BetterDiscord or this plugin.**
-
-### Play, Preview, and Hear my sounds
-
-| Control | What others hear | What you hear |
-| --- | --- | --- |
-| **Play / sound tile / hotkey** | The sound is sent to the call while your microphone is unmuted. | The same sound if **Hear my sounds** is enabled. |
-| **Preview** | Nothing is sent to the call. | A private preview, including when your microphone is muted. |
-| **Hear my sounds** | No change to what is sent to the call. | Turns local monitoring of call playback on or off. Private previews still work. |
-
-## Controls & Behavior
-
-- **Playback:** In the management window, **Play** and **Preview** switch to stop controls while their respective audio is playing. **Stop all** stops active plugin sounds and previews.
-- **Hotkeys:** Assign keyboard or mouse shortcuts, or use **Remove hotkey** to clear a binding.
-- **Volume:** Individual volume changes and the master volume apply to sounds already playing.
-- **Clips:** Trim the playback selection without changing the original audio. **Use full audio** restores the full selection.
-- **Favorites:** Favorite sounds appear first in their own section. Up to six favorites also appear in Discord's quick hover panel.
-- **Library:** Search imported sounds by name or assigned hotkey. Sounds and settings are stored locally.
-- **Removal:** Removing a sound offers an eight-second **Undo** option.
-
-<br>
-
-> [!NOTE]
-> - Sending sounds to a call requires an unmuted microphone. Private previews work independently.
-> - Enabling Soundboard during a call briefly reconnects voice. Disabling it disconnects the call.
-> - Imported sounds are stored locally and are not uploaded to Discord's native soundboard. Other participants hear the playback, but do not receive your sound library.
-> - Sound count and duration are not restricted by the plugin, but long files and simultaneous playback still use your computer's resources.
-
-<br>
-
-## Feedback & Contributing
-
-Report bugs or suggest improvements through [Issues](https://github.com/8ug8ird/Soundboard/issues).
-
-Code contributions can be submitted through [Pull Requests](https://github.com/8ug8ird/Soundboard/pulls).
+**Anyone in the call who can hear you can hear your sounds. They don't need BetterDiscord or this plugin.**
 
 <br>
 
