@@ -17,6 +17,19 @@ Play your own sounds in Discord voice calls with BetterDiscord.
 
 </div>
 
+<br>
+
+> [!WARNING]
+> **Future Discord client compatibility**
+>
+> Discord has announced plans to replace its Electron desktop client with a native Rust client. Soundboard depends on BetterDiscord and the current client’s internals, so it will not automatically be compatible with the replacement.
+>
+> Future support will depend on whether BetterDiscord or another suitable integration becomes available. A rewrite of Soundboard alone would not resolve this dependency.
+>
+> Soundboard has not been discontinued. Development continues for the current client, and this notice does not indicate a current compatibility issue.
+
+<br>
+
 ## Features
 
 - **Custom sounds:** Import your own audio and play it for everyone in a voice call.
