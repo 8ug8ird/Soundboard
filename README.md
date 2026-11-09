@@ -9,7 +9,7 @@
 [![BetterDiscord](https://img.shields.io/badge/BetterDiscord-Plugin-0B1025?style=for-the-badge&labelColor=060810&logo=discord&logoColor=white)](https://betterdiscord.app)
 [![Latest Release](https://img.shields.io/github/v/release/8ug8ird/Soundboard?style=for-the-badge&label=Latest%20Release&color=0B1025&labelColor=060810)](https://github.com/8ug8ird/Soundboard/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/8ug8ird/Soundboard/total?style=for-the-badge&label=Downloads&color=0B1025&labelColor=060810)](https://github.com/8ug8ird/Soundboard/releases)
-[![License](https://img.shields.io/badge/License-MIT-0B1025?style=for-the-badge&labelColor=060810)](https://github.com/8ug8ird/Soundboard/blob/main/LICENSE)
+[![License](https://img.shields.io/badge/License-GPL--3.0-0B1025?style=for-the-badge&labelColor=060810)](https://github.com/8ug8ird/Soundboard/blob/main/LICENSE)
 
 Play your own sounds in Discord voice calls with BetterDiscord.
 
