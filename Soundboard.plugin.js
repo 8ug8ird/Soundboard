@@ -2,13 +2,13 @@
  * @name Soundboard
  * @author 8ug8ird
  * @authorId 698947564459917343
- * @version 1.3.0
+ * @version 1.3.1
  * @description Play your own sounds in voice calls
  * @source https://github.com/8ug8ird/Soundboard
  */
 
 const NAME = "Soundboard";
-const VERSION = "1.3.0";
+const VERSION = "1.3.1";
 const AUDIO_CACHE_BYTES = 64 * 1024 * 1024;
 const UPDATE_REPO = "8ug8ird/Soundboard";
 const RELEASES_URL = `https://github.com/${UPDATE_REPO}/releases`;
@@ -388,13 +388,26 @@ module.exports = class Soundboard {
             if (!asset?.browser_download_url?.startsWith(`${RELEASES_URL}/download/`)) throw Error("The release has no Soundboard.plugin.js download.");
             if (!manual && this.notifiedVersion === version) return;
             this.updateNotice?.();
-            this.updateNotice = BdApi.UI.showNotice(`Soundboard v${version} is now available!`, {
-                timeout: 0,
-                buttons: [
-                    { label: "Update now", onClick: () => this.installUpdate(version, asset.browser_download_url) },
-                    { label: "What's new", onClick: () => window.open(`${RELEASES_URL}/tag/${release.tag_name}`, "_blank", "noopener,noreferrer") }
-                ]
-            });
+            this.updateNotice = null;
+            try {
+                if (!document.getElementById("bd-notices")) {
+                    const base = document.querySelector('div[class^="base_"]:has(> div[class^="content_"])');
+                    if (base) {
+                        const container = document.createElement("div");
+                        container.id = "bd-notices";
+                        base.prepend(container);
+                    }
+                }
+                this.updateNotice = BdApi.UI.showNotice(`Soundboard v${version} is now available!`, {
+                    timeout: 0,
+                    buttons: [
+                        { label: "Update now", onClick: () => this.installUpdate(version, asset.browser_download_url) },
+                        { label: "What's new", onClick: () => window.open(`${RELEASES_URL}/tag/${release.tag_name}`, "_blank", "noopener,noreferrer") }
+                    ]
+                });
+            } catch (error) {
+                console.warn(NAME, "Update notice failed:", error);
+            }
             if (!this.updateNotice) BdApi.UI.showToast(`Soundboard v${version} is available. Check for updates in settings.`, { type: "info" });
             this.notifiedVersion = version;
         } catch (error) {
